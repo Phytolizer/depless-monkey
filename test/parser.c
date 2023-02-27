@@ -617,6 +617,205 @@ static TEST_FUNC(state, operator_precedence, struct string input, struct string 
     PASS();
 }
 
+static TEST_FUNC0(state, if_expression) {
+    const struct string input = STRING_REF_C("if (x < y) { x }");
+    struct lexer l;
+    lexer_init(&l, input);
+    struct parser p;
+    parser_init(&p, &l);
+    struct ast_program* program = parse_program(&p);
+    RUN_SUBTEST(
+        state,
+        check_parser_errors,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        &p
+    );
+
+    TEST_ASSERT(
+        state,
+        program->statements.len == 1,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "program has not enough statements. got=%zu",
+        program->statements.len
+    );
+
+    TEST_ASSERT(
+        state,
+        program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
+        STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
+    );
+
+    struct ast_expression_statement* stmt =
+        (struct ast_expression_statement*)program->statements.ptr[0];
+    TEST_ASSERT(
+        state,
+        stmt->expression->type == AST_EXPRESSION_IF,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "stmt.expression is not ast_if_expression*. got=" STRING_FMT,
+        STRING_ARG(ast_expression_type_string(stmt->expression->type))
+    );
+
+    struct ast_if_expression* exp = (struct ast_if_expression*)stmt->expression;
+    RUN_SUBTEST(
+        state,
+        infix_expression,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        exp->condition,
+        test_value_string(STRING_REF("x")),
+        STRING_REF("<"),
+        test_value_string(STRING_REF("y"))
+    );
+
+    TEST_ASSERT(
+        state,
+        exp->consequence->statements.len == 1,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "consequence is not 1 statements. got=%zu",
+        exp->consequence->statements.len
+    );
+
+    TEST_ASSERT(
+        state,
+        exp->consequence->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "consequence.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
+        STRING_ARG(ast_statement_type_string(exp->consequence->statements.ptr[0]->type))
+    );
+
+    struct ast_expression_statement* consequence =
+        (struct ast_expression_statement*)exp->consequence->statements.ptr[0];
+    RUN_SUBTEST(
+        state,
+        identifier,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        consequence->expression,
+        STRING_REF("x")
+    );
+
+    TEST_ASSERT(
+        state,
+        exp->alternative == NULL,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "exp.alternative was not NULL. got=" STRING_FMT,
+        STRING_ARG(ast_statement_string(&exp->alternative->statement))
+    );
+
+    ast_node_free(&program->node);
+    parser_deinit(&p);
+    PASS();
+}
+
+static TEST_FUNC0(state, if_else_expression) {
+    const struct string input = STRING_REF_C("if (x < y) { x } else { y }");
+    struct lexer l;
+    lexer_init(&l, input);
+    struct parser p;
+    parser_init(&p, &l);
+    struct ast_program* program = parse_program(&p);
+    RUN_SUBTEST(
+        state,
+        check_parser_errors,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        &p
+    );
+
+    TEST_ASSERT(
+        state,
+        program->statements.len == 1,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "program has not enough statements. got=%zu",
+        program->statements.len
+    );
+
+    TEST_ASSERT(
+        state,
+        program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
+        STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
+    );
+
+    struct ast_expression_statement* stmt =
+        (struct ast_expression_statement*)program->statements.ptr[0];
+    TEST_ASSERT(
+        state,
+        stmt->expression->type == AST_EXPRESSION_IF,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "stmt.expression is not ast_if_expression*. got=" STRING_FMT,
+        STRING_ARG(ast_expression_type_string(stmt->expression->type))
+    );
+
+    struct ast_if_expression* exp = (struct ast_if_expression*)stmt->expression;
+    RUN_SUBTEST(
+        state,
+        infix_expression,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        exp->condition,
+        test_value_string(STRING_REF("x")),
+        STRING_REF("<"),
+        test_value_string(STRING_REF("y"))
+    );
+
+    TEST_ASSERT(
+        state,
+        exp->consequence->statements.len == 1,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "consequence is not 1 statements. got=%zu",
+        exp->consequence->statements.len
+    );
+
+    TEST_ASSERT(
+        state,
+        exp->consequence->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "consequence.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
+        STRING_ARG(ast_statement_type_string(exp->consequence->statements.ptr[0]->type))
+    );
+
+    struct ast_expression_statement* consequence =
+        (struct ast_expression_statement*)exp->consequence->statements.ptr[0];
+    RUN_SUBTEST(
+        state,
+        identifier,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        consequence->expression,
+        STRING_REF("x")
+    );
+
+    TEST_ASSERT(
+        state,
+        exp->alternative->statements.len == 1,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "alternative is not 1 statements. got=%zu",
+        exp->alternative->statements.len
+    );
+
+    TEST_ASSERT(
+        state,
+        exp->alternative->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "alternative.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
+        STRING_ARG(ast_statement_type_string(exp->alternative->statements.ptr[0]->type))
+    );
+
+    struct ast_expression_statement* alternative =
+        (struct ast_expression_statement*)exp->alternative->statements.ptr[0];
+
+    RUN_SUBTEST(
+        state,
+        identifier,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        alternative->expression,
+        STRING_REF("y")
+    );
+
+    ast_node_free(&program->node);
+    parser_deinit(&p);
+    PASS();
+}
+
 SUITE_FUNC(state, parser) {
     RUN_TEST0(state, let_statements, STRING_REF("let statements"));
     RUN_TEST0(state, return_statements, STRING_REF("return statements"));
@@ -746,4 +945,7 @@ SUITE_FUNC(state, parser) {
             boolean_tests[i].expected
         );
     }
+
+    RUN_TEST0(state, if_expression, STRING_REF("if expression"));
+    RUN_TEST0(state, if_else_expression, STRING_REF("if/else expression"));
 }

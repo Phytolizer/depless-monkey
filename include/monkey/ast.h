@@ -140,6 +140,19 @@ ast_expression_statement_init_base(struct token token, struct ast_expression* ex
     return &ast_expression_statement_init(token, expression)->statement;
 }
 
+struct ast_block_statement {
+    struct ast_statement statement;
+    struct token token;
+    struct ast_statement_buf statements;
+};
+
+extern struct ast_block_statement*
+ast_block_statement_init(struct token token, struct ast_statement_buf statements);
+static inline struct ast_statement*
+ast_block_statement_init_base(struct token token, struct ast_statement_buf statements) {
+    return &ast_block_statement_init(token, statements)->statement;
+}
+
 struct ast_identifier {
     struct ast_expression expression;
     struct token token;
@@ -213,6 +226,29 @@ struct ast_boolean {
 extern struct ast_boolean* ast_boolean_init(struct token token, bool value);
 static inline struct ast_expression* ast_boolean_init_base(struct token token, bool value) {
     return &ast_boolean_init(token, value)->expression;
+}
+
+struct ast_if_expression {
+    struct ast_expression expression;
+    struct token token;
+    struct ast_expression* condition;
+    struct ast_block_statement* consequence;
+    struct ast_block_statement* alternative;
+};
+
+extern struct ast_if_expression* ast_if_expression_init(
+    struct token token,
+    struct ast_expression* condition,
+    struct ast_block_statement* consequence,
+    struct ast_block_statement* alternative
+);
+static inline struct ast_expression* ast_if_expression_init_base(
+    struct token token,
+    struct ast_expression* condition,
+    struct ast_block_statement* consequence,
+    struct ast_block_statement* alternative
+) {
+    return &ast_if_expression_init(token, condition, consequence, alternative)->expression;
 }
 
 #endif  // MONKEY_AST_H_

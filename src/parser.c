@@ -160,6 +160,67 @@ static struct ast_expression* parse_grouped_expression(struct parser* p) {
     return exp;
 }
 
+static struct ast_statement* parse_statement(struct parser* p);
+
+static struct ast_block_statement* parse_block_statement(struct parser* p) {
+    struct token token = take_cur(p);
+    struct ast_statement_buf statements = {0};
+
+    next_token(p);
+
+    while (p->cur_token.type != TOKEN_RBRACE && p->cur_token.type != TOKEN_EOF) {
+        struct ast_statement* statement = parse_statement(p);
+        if (statement) {
+            BUF_PUSH(&statements, statement);
+        }
+        next_token(p);
+    }
+
+    return ast_block_statement_init(token, statements);
+}
+
+static struct ast_expression* parse_if_expression(struct parser* p) {
+    struct token token = take_cur(p);
+
+    if (!expect_peek(p, TOKEN_LPAREN)) {
+        STRING_FREE(token.literal);
+        return NULL;
+    }
+
+    next_token(p);
+    struct ast_expression* condition = parse_expression(p, PREC_LOWEST);
+
+    if (!expect_peek(p, TOKEN_RPAREN)) {
+        ast_expression_free(condition);
+        STRING_FREE(token.literal);
+        return NULL;
+    }
+
+    if (!expect_peek(p, TOKEN_LBRACE)) {
+        ast_expression_free(condition);
+        STRING_FREE(token.literal);
+        return NULL;
+    }
+
+    struct ast_block_statement* consequence = parse_block_statement(p);
+    struct ast_block_statement* alternative = NULL;
+
+    if (p->peek_token.type == TOKEN_ELSE) {
+        next_token(p);
+
+        if (!expect_peek(p, TOKEN_LBRACE)) {
+            ast_expression_free(condition);
+            ast_statement_free(&consequence->statement);
+            STRING_FREE(token.literal);
+            return NULL;
+        }
+
+        alternative = parse_block_statement(p);
+    }
+
+    return ast_if_expression_init_base(token, condition, consequence, alternative);
+}
+
 static prefix_parse_fn_t* prefix_parse_fn(enum token_type type) {
     switch (type) {
         case TOKEN_IDENT:
@@ -174,6 +235,8 @@ static prefix_parse_fn_t* prefix_parse_fn(enum token_type type) {
             return &parse_boolean;
         case TOKEN_LPAREN:
             return &parse_grouped_expression;
+        case TOKEN_IF:
+            return &parse_if_expression;
         default:
             return NULL;
     }

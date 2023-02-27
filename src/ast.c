@@ -282,6 +282,46 @@ ast_expression_statement_init(struct token token, struct ast_expression* express
     return self;
 }
 
+static struct string block_statement_token_literal(const struct ast_node* node) {
+    const struct ast_block_statement* self = (const struct ast_block_statement*)node;
+    return self->token.literal;
+}
+
+static struct string block_statement_string(const struct ast_node* node) {
+    const struct ast_block_statement* self = (const struct ast_block_statement*)node;
+    struct string buf = {0};
+    for (size_t i = 0; i < self->statements.len; i++) {
+        struct string statement_str = ast_statement_string(self->statements.ptr[i]);
+        string_append(&buf, statement_str);
+        STRING_FREE(statement_str);
+    }
+    return buf;
+}
+
+static void block_statement_free(struct ast_node* node) {
+    struct ast_block_statement* self = DOWNCAST(struct ast_block_statement, node);
+    STRING_FREE(self->token.literal);
+    for (size_t i = 0; i < self->statements.len; i++) {
+        ast_statement_free(self->statements.ptr[i]);
+        free(self->statements.ptr[i]);
+    }
+    BUF_FREE(self->statements);
+}
+
+struct ast_block_statement*
+ast_block_statement_init(struct token token, struct ast_statement_buf statements) {
+    struct ast_block_statement* self = malloc(sizeof(*self));
+    self->statement = ast_statement_init(
+        AST_STATEMENT_BLOCK,
+        block_statement_token_literal,
+        block_statement_string,
+        block_statement_free
+    );
+    self->token = token;
+    self->statements = statements;
+    return self;
+}
+
 static struct string identifier_token_literal(const struct ast_node* node) {
     const struct ast_identifier* self = (const struct ast_identifier*)node;
     return self->token.literal;
@@ -451,5 +491,62 @@ struct ast_boolean* ast_boolean_init(struct token token, bool value) {
     );
     self->token = token;
     self->value = value;
+    return self;
+}
+
+static struct string if_expression_token_literal(const struct ast_node* node) {
+    const struct ast_if_expression* self = (const struct ast_if_expression*)node;
+    return self->token.literal;
+}
+
+static struct string if_expression_string(const struct ast_node* node) {
+    const struct ast_if_expression* self = (const struct ast_if_expression*)node;
+    struct string buf = string_dup(STRING_REF("if"));
+    struct string condition_str = ast_expression_string(self->condition);
+    string_append(&buf, condition_str);
+    STRING_FREE(condition_str);
+    string_append(&buf, STRING_REF(" "));
+    struct string consequence_str = ast_statement_string(&self->consequence->statement);
+    string_append(&buf, consequence_str);
+    STRING_FREE(consequence_str);
+    if (self->alternative) {
+        string_append(&buf, STRING_REF(" else "));
+        struct string alternative_str = ast_statement_string(&self->alternative->statement);
+        string_append(&buf, alternative_str);
+        STRING_FREE(alternative_str);
+    }
+    return buf;
+}
+
+static void if_expression_free(struct ast_node* node) {
+    struct ast_if_expression* self = DOWNCAST(struct ast_if_expression, node);
+    STRING_FREE(self->token.literal);
+    ast_expression_free(self->condition);
+    free(self->condition);
+    ast_statement_free(&self->consequence->statement);
+    free(self->consequence);
+    if (self->alternative) {
+        ast_statement_free(&self->alternative->statement);
+        free(self->alternative);
+    }
+}
+
+struct ast_if_expression* ast_if_expression_init(
+    struct token token,
+    struct ast_expression* condition,
+    struct ast_block_statement* consequence,
+    struct ast_block_statement* alternative
+) {
+    struct ast_if_expression* self = malloc(sizeof(*self));
+    self->expression = ast_expression_init(
+        AST_EXPRESSION_IF,
+        if_expression_token_literal,
+        if_expression_string,
+        if_expression_free
+    );
+    self->token = token;
+    self->condition = condition;
+    self->consequence = consequence;
+    self->alternative = alternative;
     return self;
 }
