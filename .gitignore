@@ -4,5 +4,5 @@ compile_commands.json
 /.vscode
 *.o
 *.a
-monkey
+/app/monkey
 monkey-test
