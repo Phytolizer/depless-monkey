@@ -1,6 +1,7 @@
 # Monkey programming language
 
-The [Monkey](https://interpreterbook.com/) programming language implemented in C, with no external dependencies.
+The [Monkey](https://interpreterbook.com/#the-monkey-programming-language)
+programming language implemented in C, with no external dependencies.
 
 ## Compiling
 
