@@ -1,0 +1,4 @@
+include_rules
+CFLAGS += -I../include
+: foreach *.c |> !cc |>
+: *.o |> !ar |> libmonkey.a

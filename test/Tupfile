@@ -1,0 +1,4 @@
+include_rules
+CFLAGS += -Iinclude -I../include
+: foreach *.c |> !cc |>
+: *.o ../src/libmonkey.a |> !ld |> monkey-test

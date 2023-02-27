@@ -1,0 +1,8 @@
+compile_commands.json
+/.tup
+/.cache
+/.vscode
+*.o
+*.a
+monkey
+monkey-test
