@@ -1,9 +1,10 @@
 CFLAGS += -Wall -Wextra -Werror -Wmissing-prototypes -Wno-unused-function
 CFLAGS += -ggdb3
-CFLAGS += -O3 -flto -march=native -mtune=native -fno-omit-frame-pointer
+# CFLAGS += -O3 -flto -march=native -mtune=native -fno-omit-frame-pointer
 ASANFLAGS = -fsanitize=address,undefined,integer -fno-sanitize-recover=all
 CFLAGS += $(ASANFLAGS)
-LDFLAGS += $(ASANFLAGS) -flto
+LDFLAGS += $(ASANFLAGS)
+# LDFLAGS += -flto
 !cc = |> ^j^ clang $(CFLAGS) -c %f -o %o |> %B.o
 !ar = |> ar rcs %o %f |>
 !ld = |> clang $(LDFLAGS) %f -o %o |>
