@@ -403,12 +403,15 @@ static struct ast_statement* parse_let_statement(struct parser* p) {
         return NULL;
     }
 
-    // [TODO] skipping until semicolon
-    while (p->cur_token.type != TOKEN_SEMICOLON) {
+    next_token(p);
+
+    struct ast_expression* value = parse_expression(p, PREC_LOWEST);
+
+    if (p->peek_token.type == TOKEN_SEMICOLON) {
         next_token(p);
     }
 
-    return ast_let_statement_init_base(token, name, NULL);
+    return ast_let_statement_init_base(token, name, value);
 }
 
 static struct ast_statement* parse_return_statement(struct parser* p) {
@@ -416,12 +419,13 @@ static struct ast_statement* parse_return_statement(struct parser* p) {
 
     next_token(p);
 
-    // [TODO] skipping until semicolon
-    while (p->cur_token.type != TOKEN_SEMICOLON) {
+    struct ast_expression* return_value = parse_expression(p, PREC_LOWEST);
+
+    if (p->peek_token.type == TOKEN_SEMICOLON) {
         next_token(p);
     }
 
-    return ast_return_statement_init_base(token, NULL);
+    return ast_return_statement_init_base(token, return_value);
 }
 
 static struct ast_statement* parse_expression_statement(struct parser* p) {

@@ -49,44 +49,6 @@ static SUBTEST_FUNC(state, check_parser_errors, struct parser* p) {
     FAIL(state, CLEANUP(STRING_FREE(msg)), STRING_FMT, STRING_ARG(msg));
 }
 
-static SUBTEST_FUNC(state, let_statement, struct ast_statement* s, struct string name) {
-    TEST_ASSERT(
-        state,
-        STRING_EQUAL(ast_node_token_literal(&s->node), S("let")),
-        NO_CLEANUP,
-        "s.token_literal() not 'let'. got=\"" STRING_FMT "\"",
-        STRING_ARG(ast_node_token_literal(&s->node))
-    );
-
-    TEST_ASSERT(
-        state,
-        s->type == AST_STATEMENT_LET,
-        NO_CLEANUP,
-        "s not ast_let_statement*. got=" STRING_FMT,
-        STRING_ARG(ast_statement_type_string(s->type))
-    );
-
-    struct ast_let_statement* let_stmt = (struct ast_let_statement*)s;
-    TEST_ASSERT(
-        state,
-        STRING_EQUAL(let_stmt->name->value, name),
-        NO_CLEANUP,
-        "let_stmt.name.value not '" STRING_FMT "'. got=" STRING_FMT,
-        STRING_ARG(name),
-        STRING_ARG(let_stmt->name->value)
-    );
-    TEST_ASSERT(
-        state,
-        STRING_EQUAL(ast_node_token_literal(&let_stmt->name->expression.node), name),
-        NO_CLEANUP,
-        "let_stmt.name.token_literal() not '" STRING_FMT "'. got=" STRING_FMT,
-        STRING_ARG(name),
-        STRING_ARG(ast_node_token_literal(&let_stmt->name->expression.node))
-    );
-
-    PASS();
-}
-
 static SUBTEST_FUNC(state, integer_literal, struct ast_expression* exp, int64_t value) {
     TEST_ASSERT(
         state,
@@ -200,6 +162,52 @@ static SUBTEST_FUNC(
 
 static SUBTEST_FUNC(
     state,
+    let_statement,
+    struct ast_statement* s,
+    struct string name,
+    struct test_value value
+) {
+    TEST_ASSERT(
+        state,
+        STRING_EQUAL(ast_node_token_literal(&s->node), S("let")),
+        NO_CLEANUP,
+        "s.token_literal() not 'let'. got=\"" STRING_FMT "\"",
+        STRING_ARG(ast_node_token_literal(&s->node))
+    );
+
+    TEST_ASSERT(
+        state,
+        s->type == AST_STATEMENT_LET,
+        NO_CLEANUP,
+        "s not ast_let_statement*. got=" STRING_FMT,
+        STRING_ARG(ast_statement_type_string(s->type))
+    );
+
+    struct ast_let_statement* let_stmt = (struct ast_let_statement*)s;
+    TEST_ASSERT(
+        state,
+        STRING_EQUAL(let_stmt->name->value, name),
+        NO_CLEANUP,
+        "let_stmt.name.value not '" STRING_FMT "'. got=" STRING_FMT,
+        STRING_ARG(name),
+        STRING_ARG(let_stmt->name->value)
+    );
+    TEST_ASSERT(
+        state,
+        STRING_EQUAL(ast_node_token_literal(&let_stmt->name->expression.node), name),
+        NO_CLEANUP,
+        "let_stmt.name.token_literal() not '" STRING_FMT "'. got=" STRING_FMT,
+        STRING_ARG(name),
+        STRING_ARG(ast_node_token_literal(&let_stmt->name->expression.node))
+    );
+
+    RUN_SUBTEST(state, literal_expression, NO_CLEANUP, let_stmt->value, value);
+
+    PASS();
+}
+
+static SUBTEST_FUNC(
+    state,
     infix_expression,
     struct ast_expression* exp,
     struct test_value left,
@@ -228,11 +236,13 @@ static SUBTEST_FUNC(
     PASS();
 }
 
-static TEST_FUNC0(state, let_statements) {
-    const struct string input =
-        S("let x = 5;\n"
-          "let y = 10;\n"
-          "let foobar = 838383;\n");
+static TEST_FUNC(
+    state,
+    let_statements,
+    struct string input,
+    struct string expected_identifier,
+    struct test_value expected_value
+) {
     struct lexer l;
     lexer_init(&l, input);
     struct parser p;
@@ -247,42 +257,28 @@ static TEST_FUNC0(state, let_statements) {
 
     TEST_ASSERT(
         state,
-        program->statements.len == 3,
+        program->statements.len == 1,
         CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
-        "program.statements does not contain 3 statements. got=%zu",
+        "program.statements does not contain 1 statements. got=%zu",
         program->statements.len
     );
 
-    const struct {
-        struct string expected_identifier;
-    } tests[] = {
-        {S("x")},
-        {S("y")},
-        {S("foobar")},
-    };
-
-    for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
-        struct ast_statement* stmt = program->statements.ptr[i];
-        RUN_SUBTEST(
-            state,
-            let_statement,
-            CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
-            stmt,
-            tests[i].expected_identifier
-        );
-    }
+    struct ast_statement* stmt = program->statements.ptr[0];
+    RUN_SUBTEST(
+        state,
+        let_statement,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        stmt,
+        expected_identifier,
+        expected_value
+    );
 
     ast_node_free(&program->node);
     parser_deinit(&p);
     PASS();
 }
 
-static TEST_FUNC0(state, return_statements) {
-    const struct string input =
-        S("return 5;\n"
-          "return 10;\n"
-          "return 993322;\n");
-
+static TEST_FUNC(state, return_statements, struct string input, struct test_value expected_value) {
     struct lexer l;
     lexer_init(&l, input);
     struct parser p;
@@ -298,31 +294,37 @@ static TEST_FUNC0(state, return_statements) {
 
     TEST_ASSERT(
         state,
-        program->statements.len == 3,
+        program->statements.len == 1,
         CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
-        "program.statements does not contain 3 statements. got=%zu",
+        "program.statements does not contain 1 statements. got=%zu",
         program->statements.len
     );
 
-    for (size_t i = 0; i < program->statements.len; i++) {
-        TEST_ASSERT(
-            state,
-            program->statements.ptr[i]->type == AST_STATEMENT_RETURN,
-            CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
-            "stmt not ast_return_statement*. got=" STRING_FMT,
-            STRING_ARG(ast_statement_type_string(program->statements.ptr[i]->type))
-        );
+    TEST_ASSERT(
+        state,
+        program->statements.ptr[0]->type == AST_STATEMENT_RETURN,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "stmt not ast_return_statement*. got=" STRING_FMT,
+        STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
+    );
 
-        struct ast_return_statement* return_stmt =
-            (struct ast_return_statement*)program->statements.ptr[i];
-        TEST_ASSERT(
-            state,
-            STRING_EQUAL(ast_node_token_literal(&return_stmt->statement.node), S("return")),
-            CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
-            "return_stmt.token_literal() not 'return', got \"" STRING_FMT "\"",
-            STRING_ARG(ast_node_token_literal(&return_stmt->statement.node))
-        );
-    }
+    struct ast_return_statement* return_stmt =
+        (struct ast_return_statement*)program->statements.ptr[0];
+    TEST_ASSERT(
+        state,
+        STRING_EQUAL(ast_node_token_literal(&return_stmt->statement.node), S("return")),
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "return_stmt.token_literal() not 'return', got \"" STRING_FMT "\"",
+        STRING_ARG(ast_node_token_literal(&return_stmt->statement.node))
+    );
+
+    RUN_SUBTEST(
+        state,
+        literal_expression,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        return_stmt->return_value,
+        expected_value
+    );
 
     ast_node_free(&program->node);
     parser_deinit(&p);
@@ -1070,8 +1072,50 @@ static TEST_FUNC0(state, call_expression) {
 }
 
 SUITE_FUNC(state, parser) {
-    RUN_TEST0(state, let_statements, S("let statements"));
-    RUN_TEST0(state, return_statements, S("return statements"));
+    struct {
+        struct string input;
+        struct string expected_identifier;
+        struct test_value expected_value;
+    } let_statement_tests[] = {
+        {S("let x = 5;"), S("x"), test_value_int64(5)},
+        {S("let y = true;"), S("y"), test_value_boolean(true)},
+        {S("let foobar = y;"), S("foobar"), test_value_string(S("y"))},
+    };
+    for (size_t i = 0; i < sizeof(let_statement_tests) / sizeof(*let_statement_tests); i++) {
+        RUN_TEST(
+            state,
+            let_statements,
+            string_printf(
+                "let statements (\"" STRING_FMT "\")",
+                STRING_ARG(let_statement_tests[i].input)
+            ),
+            let_statement_tests[i].input,
+            let_statement_tests[i].expected_identifier,
+            let_statement_tests[i].expected_value
+        );
+    }
+
+    struct {
+        struct string input;
+        struct test_value expected_value;
+    } return_statement_tests[] = {
+        {S("return 5;"), test_value_int64(5)},
+        {S("return true;"), test_value_boolean(true)},
+        {S("return foobar;"), test_value_string(S("foobar"))},
+    };
+    for (size_t i = 0; i < sizeof(return_statement_tests) / sizeof(*return_statement_tests); i++) {
+        RUN_TEST(
+            state,
+            return_statements,
+            string_printf(
+                "return statements (\"" STRING_FMT "\")",
+                STRING_ARG(return_statement_tests[i].input)
+            ),
+            return_statement_tests[i].input,
+            return_statement_tests[i].expected_value
+        );
+    };
+
     RUN_TEST0(state, identifier_expression, S("identifier expression"));
     RUN_TEST0(state, integer_literal_expression, S("integer literal expression"));
     struct {
