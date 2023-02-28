@@ -73,4 +73,14 @@ static inline struct object* object_return_value_init_base(struct object* value)
 }
 extern struct object* object_return_value_unwrap(struct object* object);
 
+struct object_error {
+    struct object object;
+    struct string message;
+};
+
+extern struct object_error* object_error_init(struct string message);
+static inline struct object* object_error_init_base(struct string message) {
+    return &object_error_init(message)->object;
+}
+
 #endif  // MONKEY_OBJECT_H_

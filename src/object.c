@@ -54,7 +54,7 @@ static void int64_free(MONKEY_UNUSED struct object* obj) {}
 
 struct object_int64* object_int64_init(int64_t value) {
     struct object_int64* self = malloc(sizeof(*self));
-    self->object = object_init(OBJECT_INT64, int64_inspect, int64_free);
+    self->object = object_init(OBJECT_INTEGER, int64_inspect, int64_free);
     self->value = value;
     return self;
 }
@@ -109,4 +109,21 @@ struct object* object_return_value_unwrap(struct object* object) {
     self->value = NULL;
     object_free(object);
     return value;
+}
+
+static struct string error_inspect(const struct object* obj) {
+    const struct object_error* self = (const struct object_error*)obj;
+    return string_printf("ERROR: " STRING_FMT, STRING_ARG(self->message));
+}
+
+static void error_free(struct object* obj) {
+    struct object_error* self = DOWNCAST(struct object_error, obj);
+    STRING_FREE(self->message);
+}
+
+struct object_error* object_error_init(struct string message) {
+    struct object_error* self = malloc(sizeof(*self));
+    self->object = object_init(OBJECT_ERROR, error_inspect, error_free);
+    self->message = message;
+    return self;
 }

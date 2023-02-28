@@ -10,7 +10,7 @@ static bool objects_equal(struct object* left, struct object* right) {
     if (left == NULL or right == NULL) result = false;
     if (left->type != right->type) result = false;
     switch (left->type) {
-        case OBJECT_INT64:
+        case OBJECT_INTEGER:
             result = ((struct object_int64*)left)->value == ((struct object_int64*)right)->value;
             break;
         case OBJECT_BOOLEAN:
@@ -44,9 +44,12 @@ static struct object* eval_bang_operator_expression(struct object* right) {
 
 static struct object* eval_minus_prefix_operator_expression(struct object* right) {
     if (right == NULL) return object_null_init_base();
-    if (right->type != OBJECT_INT64) {
+    if (right->type != OBJECT_INTEGER) {
+        struct string right_type = object_type_string(right->type);
         object_free(right);
-        return object_null_init_base();
+        return object_error_init_base(
+            string_printf("unknown operator: -" STRING_FMT, STRING_ARG(right_type))
+        );
     }
 
     int64_t value = ((struct object_int64*)right)->value;
@@ -62,7 +65,11 @@ static struct object* eval_prefix_expression(struct string op, struct object* ri
         return eval_minus_prefix_operator_expression(right);
     } else {
         object_free(right);
-        return object_null_init_base();
+        return object_error_init_base(string_printf(
+            "unknown operator: " STRING_FMT STRING_FMT,
+            STRING_ARG(op),
+            STRING_ARG(object_type_string(right->type))
+        ));
     }
 }
 
@@ -89,7 +96,12 @@ static struct object* eval_integer_infix_expression(
     } else if (STRING_EQUAL(op, STRING_REF(">"))) {
         return object_boolean_init_base(left_val > right_val);
     } else {
-        return object_null_init_base();
+        return object_error_init_base(string_printf(
+            "unknown operator: " STRING_FMT " " STRING_FMT " " STRING_FMT,
+            STRING_ARG(object_type_string(OBJECT_INTEGER)),
+            STRING_ARG(op),
+            STRING_ARG(object_type_string(OBJECT_INTEGER))
+        ));
     }
 }
 
@@ -104,16 +116,34 @@ eval_infix_expression(struct string op, struct object* left, struct object* righ
         return object_boolean_init_base(objects_equal(left, right));
     } else if (STRING_EQUAL(op, STRING_REF("!="))) {
         return object_boolean_init_base(!objects_equal(left, right));
-    } else if (left->type == OBJECT_INT64 and right->type == OBJECT_INT64) {
+    } else if (left->type == OBJECT_INTEGER and right->type == OBJECT_INTEGER) {
         return eval_integer_infix_expression(
             op,
             (struct object_int64*)left,
             (struct object_int64*)right
         );
-    } else {
+    } else if (left->type != right->type) {
+        struct string left_type = object_type_string(left->type);
         object_free(left);
+        struct string right_type = object_type_string(right->type);
         object_free(right);
-        return object_null_init_base();
+        return object_error_init_base(string_printf(
+            "type mismatch: " STRING_FMT " " STRING_FMT " " STRING_FMT,
+            STRING_ARG(left_type),
+            STRING_ARG(op),
+            STRING_ARG(right_type)
+        ));
+    } else {
+        struct string left_type = object_type_string(left->type);
+        object_free(left);
+        struct string right_type = object_type_string(right->type);
+        object_free(right);
+        return object_error_init_base(string_printf(
+            "unknown operator: " STRING_FMT " " STRING_FMT " " STRING_FMT,
+            STRING_ARG(left_type),
+            STRING_ARG(op),
+            STRING_ARG(right_type)
+        ));
     }
 }
 
@@ -135,7 +165,8 @@ static struct object* eval_block_statement(struct ast_block_statement* block) {
     for (size_t i = 0; i < block->statements.len; i++) {
         object_free(result);
         result = eval_statement(block->statements.ptr[i]);
-        if (result != NULL and result->type == OBJECT_RETURN_VALUE) {
+        if (result != NULL and
+            (result->type == OBJECT_RETURN_VALUE or result->type == OBJECT_ERROR)) {
             return result;
         }
     }
@@ -208,8 +239,15 @@ static struct object* eval_program(struct ast_program* program) {
     for (size_t i = 0; i < program->statements.len; i++) {
         object_free(result);
         result = eval_statement(program->statements.ptr[i]);
-        if (result and result->type == OBJECT_RETURN_VALUE) {
-            return object_return_value_unwrap(result);
+        if (result) {
+            switch (result->type) {
+                case OBJECT_RETURN_VALUE:
+                    return object_return_value_unwrap(result);
+                case OBJECT_ERROR:
+                    return result;
+                default:
+                    break;
+            }
         }
     }
 

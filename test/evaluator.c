@@ -30,7 +30,7 @@ static struct object* test_eval(struct string input) {
 static SUBTEST_FUNC(state, integer_object, struct object* evaluated, int64_t expected) {
     TEST_ASSERT(
         state,
-        evaluated and evaluated->type == OBJECT_INT64,
+        evaluated and evaluated->type == OBJECT_INTEGER,
         NO_CLEANUP,
         "object is not integer. got=" STRING_FMT,
         STRING_ARG(show_obj_type(evaluated))
@@ -122,6 +122,32 @@ static TEST_FUNC(state, object, struct string input, struct test_value expected)
             // [TODO] implement string object checking
             FAIL(state, CLEANUP(object_free(evaluated)), "string object checking not implemented");
     }
+    object_free(evaluated);
+    PASS();
+}
+
+static TEST_FUNC(state, error, struct string input, struct string expected_message) {
+    struct object* evaluated = test_eval(input);
+
+    TEST_ASSERT(
+        state,
+        evaluated and evaluated->type == OBJECT_ERROR,
+        CLEANUP(object_free(evaluated)),
+        "object is not error. got=" STRING_FMT,
+        STRING_ARG(show_obj_type(evaluated))
+    );
+
+    struct object_error* error = (struct object_error*)evaluated;
+
+    TEST_ASSERT(
+        state,
+        STRING_EQUAL(error->message, expected_message),
+        CLEANUP(object_free(evaluated)),
+        "wrong error message. expected=\"" STRING_FMT "\", got=\"" STRING_FMT "\"",
+        STRING_ARG(expected_message),
+        STRING_ARG(error->message)
+    );
+
     object_free(evaluated);
     PASS();
 }
@@ -275,6 +301,37 @@ SUITE_FUNC(state, evaluator) {
             ),
             return_statement_tests[i].input,
             return_statement_tests[i].expected
+        );
+    }
+
+    struct {
+        struct string input;
+        struct string expected_message;
+    } error_handling_tests[] = {
+        {S("5 + true;"), S("type mismatch: INTEGER + BOOLEAN")},
+        {S("5 + true; 5;"), S("type mismatch: INTEGER + BOOLEAN")},
+        {S("-true"), S("unknown operator: -BOOLEAN")},
+        {S("true + false;"), S("unknown operator: BOOLEAN + BOOLEAN")},
+        {S("5; true + false; 5"), S("unknown operator: BOOLEAN + BOOLEAN")},
+        {S("if (10 > 1) { true + false; }"), S("unknown operator: BOOLEAN + BOOLEAN")},
+        {S("if (10 > 1) {\n"
+           "  if (10 > 1) {\n"
+           "    return true + false;\n"
+           "  }\n"
+           "  return 1;\n"
+           "}\n"),
+         S("unknown operator: BOOLEAN + BOOLEAN")},
+    };
+    for (size_t i = 0; i < sizeof(error_handling_tests) / sizeof(*error_handling_tests); i++) {
+        RUN_TEST(
+            state,
+            error,
+            string_printf(
+                "error handling (\"" STRING_FMT "\")",
+                STRING_ARG(error_handling_tests[i].input)
+            ),
+            error_handling_tests[i].input,
+            error_handling_tests[i].expected_message
         );
     }
 }
