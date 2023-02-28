@@ -981,6 +981,97 @@ static TEST_FUNC(
     PASS();
 }
 
+static TEST_FUNC0(state, call_expression) {
+    const struct string input = STRING_REF_C("add(1, 2 * 3, 4 + 5);");
+
+    struct lexer l;
+    lexer_init(&l, input);
+    struct parser p;
+    parser_init(&p, &l);
+    struct ast_program* program = parse_program(&p);
+    RUN_SUBTEST(
+        state,
+        check_parser_errors,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        &p
+    );
+
+    TEST_ASSERT(
+        state,
+        program->statements.len == 1,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "program has not enough statements. got=%zu",
+        program->statements.len
+    );
+
+    TEST_ASSERT(
+        state,
+        program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
+        STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
+    );
+
+    struct ast_expression_statement* stmt =
+        (struct ast_expression_statement*)program->statements.ptr[0];
+
+    TEST_ASSERT(
+        state,
+        stmt->expression->type == AST_EXPRESSION_CALL,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "stmt.expression is not ast_call_expression*. got=" STRING_FMT,
+        STRING_ARG(ast_expression_type_string(stmt->expression->type))
+    );
+
+    struct ast_call_expression* exp = (struct ast_call_expression*)stmt->expression;
+
+    RUN_SUBTEST(
+        state,
+        identifier,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        exp->function,
+        STRING_REF("add")
+    );
+
+    TEST_ASSERT(
+        state,
+        exp->arguments.len == 3,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "wrong length of arguments. got=%zu",
+        exp->arguments.len
+    );
+
+    RUN_SUBTEST(
+        state,
+        integer_literal,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        exp->arguments.ptr[0],
+        1
+    );
+    RUN_SUBTEST(
+        state,
+        infix_expression,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        exp->arguments.ptr[1],
+        test_value_int64(2),
+        STRING_REF("*"),
+        test_value_int64(3)
+    );
+    RUN_SUBTEST(
+        state,
+        infix_expression,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        exp->arguments.ptr[2],
+        test_value_int64(4),
+        STRING_REF("+"),
+        test_value_int64(5)
+    );
+
+    ast_node_free(&program->node);
+    parser_deinit(&p);
+    PASS();
+}
+
 SUITE_FUNC(state, parser) {
     RUN_TEST0(state, let_statements, STRING_REF("let statements"));
     RUN_TEST0(state, return_statements, STRING_REF("return statements"));
@@ -1138,4 +1229,6 @@ SUITE_FUNC(state, parser) {
         );
         BUF_FREE(function_parameters_tests[i].expected_params);
     }
+
+    RUN_TEST0(state, call_expression, STRING_REF("call expression"));
 }

@@ -602,3 +602,54 @@ struct ast_function_literal* ast_function_literal_init(
     self->body = body;
     return self;
 }
+
+static struct string call_expression_token_literal(const struct ast_node* node) {
+    const struct ast_call_expression* self = (const struct ast_call_expression*)node;
+    return self->token.literal;
+}
+
+static struct string call_expression_string(const struct ast_node* node) {
+    const struct ast_call_expression* self = (const struct ast_call_expression*)node;
+    struct string buf = ast_expression_string(self->function);
+    string_append(&buf, STRING_REF("("));
+    for (size_t i = 0; i < self->arguments.len; i++) {
+        if (i > 0) {
+            string_append(&buf, STRING_REF(", "));
+        }
+        struct string argument_str = ast_expression_string(self->arguments.ptr[i]);
+        string_append(&buf, argument_str);
+        STRING_FREE(argument_str);
+    }
+    string_append(&buf, STRING_REF(")"));
+    return buf;
+}
+
+static void call_expression_free(struct ast_node* node) {
+    struct ast_call_expression* self = DOWNCAST(struct ast_call_expression, node);
+    STRING_FREE(self->token.literal);
+    ast_expression_free(self->function);
+    free(self->function);
+    for (size_t i = 0; i < self->arguments.len; i++) {
+        ast_expression_free(self->arguments.ptr[i]);
+        free(self->arguments.ptr[i]);
+    }
+    BUF_FREE(self->arguments);
+}
+
+struct ast_call_expression* ast_call_expression_init(
+    struct token token,
+    struct ast_expression* function,
+    struct ast_call_argument_buf arguments
+) {
+    struct ast_call_expression* self = malloc(sizeof(*self));
+    self->expression = ast_expression_init(
+        AST_EXPRESSION_CALL,
+        call_expression_token_literal,
+        call_expression_string,
+        call_expression_free
+    );
+    self->token = token;
+    self->function = function;
+    self->arguments = arguments;
+    return self;
+}
