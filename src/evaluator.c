@@ -117,6 +117,36 @@ eval_infix_expression(struct string op, struct object* left, struct object* righ
     }
 }
 
+static bool is_truthy(struct object* obj) {
+    if (obj == NULL) return false;
+    if (obj->type == OBJECT_BOOLEAN) {
+        return ((struct object_boolean*)obj)->value;
+    } else if (obj->type == OBJECT_NULL) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
+static struct object* eval_expression(struct ast_expression* expression);
+static struct object* eval_statements(struct ast_statement_buf statements);
+
+static struct object* eval_if_expression(struct ast_if_expression* expression) {
+    struct object* condition = eval_expression(expression->condition);
+    if (condition == NULL) return object_null_init_base();
+    if (is_truthy(condition)) {
+        object_free(condition);
+        return eval_statements(expression->consequence->statements);
+    } else {
+        object_free(condition);
+        if (expression->alternative != NULL) {
+            return eval_statements(expression->alternative->statements);
+        } else {
+            return object_null_init_base();
+        }
+    }
+}
+
 static struct object* eval_expression(struct ast_expression* expression) {
     switch (expression->type) {
         case AST_EXPRESSION_INTEGER_LITERAL:
@@ -134,6 +164,8 @@ static struct object* eval_expression(struct ast_expression* expression) {
             struct object* right = eval_expression(exp->right);
             return eval_infix_expression(exp->op, left, right);
         }
+        case AST_EXPRESSION_IF:
+            return eval_if_expression((struct ast_if_expression*)expression);
         default:
             // [TODO] eval_expression
             return object_null_init_base();
@@ -144,6 +176,8 @@ static struct object* eval_statement(struct ast_statement* statement) {
     switch (statement->type) {
         case AST_STATEMENT_EXPRESSION:
             return eval_expression(((struct ast_expression_statement*)statement)->expression);
+        case AST_STATEMENT_BLOCK:
+            return eval_statements(((struct ast_block_statement*)statement)->statements);
         default:
             // [TODO] eval_statement
             return object_null_init_base();

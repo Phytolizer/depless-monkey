@@ -69,6 +69,17 @@ static SUBTEST_FUNC(state, boolean_object, struct object* evaluated, bool expect
     PASS();
 }
 
+static SUBTEST_FUNC(state, null_object, struct object* evaluated) {
+    TEST_ASSERT(
+        state,
+        evaluated and evaluated->type == OBJECT_NULL,
+        NO_CLEANUP,
+        "object is not null. got=" STRING_FMT,
+        STRING_ARG(show_obj_type(evaluated))
+    );
+    PASS();
+}
+
 static TEST_FUNC(state, integer_expression, struct string input, int64_t expected) {
     struct object* evaluated = test_eval(input);
     RUN_SUBTEST(state, integer_object, CLEANUP(object_free(evaluated)), evaluated, expected);
@@ -79,6 +90,38 @@ static TEST_FUNC(state, integer_expression, struct string input, int64_t expecte
 static TEST_FUNC(state, boolean_expression, struct string input, bool expected) {
     struct object* evaluated = test_eval(input);
     RUN_SUBTEST(state, boolean_object, CLEANUP(object_free(evaluated)), evaluated, expected);
+    object_free(evaluated);
+    PASS();
+}
+
+static TEST_FUNC(state, object, struct string input, struct test_value expected) {
+    struct object* evaluated = test_eval(input);
+    switch (expected.type) {
+        case TEST_VALUE_NULL:
+            RUN_SUBTEST(state, null_object, CLEANUP(object_free(evaluated)), evaluated);
+            break;
+        case TEST_VALUE_INT64:
+            RUN_SUBTEST(
+                state,
+                integer_object,
+                CLEANUP(object_free(evaluated)),
+                evaluated,
+                expected.int64
+            );
+            break;
+        case TEST_VALUE_BOOLEAN:
+            RUN_SUBTEST(
+                state,
+                boolean_object,
+                CLEANUP(object_free(evaluated)),
+                evaluated,
+                expected.boolean
+            );
+            break;
+        case TEST_VALUE_STRING:
+            // [TODO] implement string object checking
+            FAIL(state, CLEANUP(object_free(evaluated)), "string object checking not implemented");
+    }
     object_free(evaluated);
     PASS();
 }
@@ -177,6 +220,32 @@ SUITE_FUNC(state, evaluator) {
             ),
             bang_operator_tests[i].input,
             bang_operator_tests[i].expected
+        );
+    }
+
+    struct {
+        struct string input;
+        struct test_value expected;
+    } if_else_expression_tests[] = {
+        {S("if (true) { 10 }"), test_value_int64(10)},
+        {S("if (false) { 10 }"), test_value_null()},
+        {S("if (1) { 10 }"), test_value_int64(10)},
+        {S("if (1 < 2) { 10 }"), test_value_int64(10)},
+        {S("if (1 > 2) { 10 }"), test_value_null()},
+        {S("if (1 > 2) { 10 } else { 20 }"), test_value_int64(20)},
+        {S("if (1 < 2) { 10 } else { 20 }"), test_value_int64(10)},
+    };
+    for (size_t i = 0; i < sizeof(if_else_expression_tests) / sizeof(*if_else_expression_tests);
+         i++) {
+        RUN_TEST(
+            state,
+            object,
+            string_printf(
+                "if/else expression (\"" STRING_FMT "\")",
+                STRING_ARG(if_else_expression_tests[i].input)
+            ),
+            if_else_expression_tests[i].input,
+            if_else_expression_tests[i].expected
         );
     }
 }

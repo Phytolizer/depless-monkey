@@ -122,6 +122,9 @@ static SUBTEST_FUNC(
     struct test_value expected
 ) {
     switch (expected.type) {
+        case TEST_VALUE_NULL:
+            FAIL(state, NO_CLEANUP, "null AST checking not implemented");
+            break;
         case TEST_VALUE_INT64:
             RUN_SUBTEST(state, integer_literal, NO_CLEANUP, exp, expected.int64);
             break;
