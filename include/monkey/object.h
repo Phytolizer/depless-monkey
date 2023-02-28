@@ -28,6 +28,8 @@ extern struct object object_init(
     object_inspect_callback_t* inspect_callback,
     object_free_callback_t* free_callback
 );
+extern struct string object_inspect(const struct object* object);
+extern void object_free(struct object* object);
 
 struct object_int64 {
     struct object object;

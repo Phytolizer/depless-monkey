@@ -24,6 +24,14 @@ struct object object_init(
     return object;
 }
 
+struct string object_inspect(const struct object* object) {
+    return object->inspect_callback(object);
+}
+
+void object_free(struct object* object) {
+    object->free_callback(object);
+}
+
 static struct string int64_inspect(const struct object* obj) {
     const struct object_int64* self = (const struct object_int64*)obj;
     return string_printf("%" PRId64, self->value);
