@@ -251,4 +251,26 @@ static inline struct ast_expression* ast_if_expression_init_base(
     return &ast_if_expression_init(token, condition, consequence, alternative)->expression;
 }
 
+BUF_T(struct ast_identifier*, ast_function_parameter);
+
+struct ast_function_literal {
+    struct ast_expression expression;
+    struct token token;
+    struct ast_function_parameter_buf parameters;
+    struct ast_block_statement* body;
+};
+
+extern struct ast_function_literal* ast_function_literal_init(
+    struct token token,
+    struct ast_function_parameter_buf parameters,
+    struct ast_block_statement* body
+);
+static inline struct ast_expression* ast_function_literal_init_base(
+    struct token token,
+    struct ast_function_parameter_buf parameters,
+    struct ast_block_statement* body
+) {
+    return &ast_function_literal_init(token, parameters, body)->expression;
+}
+
 #endif  // MONKEY_AST_H_

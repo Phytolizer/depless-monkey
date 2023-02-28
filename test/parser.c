@@ -816,6 +816,99 @@ static TEST_FUNC0(state, if_else_expression) {
     PASS();
 }
 
+static TEST_FUNC0(state, function_literal) {
+    const struct string input = STRING_REF_C("fn(x, y) { x + y; }");
+
+    struct lexer l;
+    lexer_init(&l, input);
+    struct parser p;
+    parser_init(&p, &l);
+    struct ast_program* program = parse_program(&p);
+    RUN_SUBTEST(
+        state,
+        check_parser_errors,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        &p
+    );
+
+    TEST_ASSERT(
+        state,
+        program->statements.len == 1,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "program has not enough statements. got=%zu",
+        program->statements.len
+    );
+
+    TEST_ASSERT(
+        state,
+        program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
+        STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
+    );
+
+    struct ast_expression_statement* stmt =
+        (struct ast_expression_statement*)program->statements.ptr[0];
+
+    TEST_ASSERT(
+        state,
+        stmt->expression->type == AST_EXPRESSION_FUNCTION,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "stmt.expression is not ast_function_expression*. got=" STRING_FMT,
+        STRING_ARG(ast_expression_type_string(stmt->expression->type))
+    );
+
+    struct ast_function_literal* function = (struct ast_function_literal*)stmt->expression;
+    TEST_ASSERT(
+        state,
+        function->parameters.len == 2,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "function literal parameters wrong. want 2, got=%zu",
+        function->parameters.len
+    );
+
+    RUN_SUBTEST(
+        state,
+        identifier,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        &function->parameters.ptr[0]->expression,
+        STRING_REF("x")
+    );
+
+    RUN_SUBTEST(
+        state,
+        identifier,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        &function->parameters.ptr[1]->expression,
+        STRING_REF("y")
+    );
+
+    TEST_ASSERT(
+        state,
+        function->body->statements.len == 1,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "function body statements has not 1 statements. got=%zu",
+        function->body->statements.len
+    );
+
+    struct ast_expression_statement* body_stmt =
+        (struct ast_expression_statement*)function->body->statements.ptr[0];
+
+    RUN_SUBTEST(
+        state,
+        infix_expression,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        body_stmt->expression,
+        test_value_string(STRING_REF("x")),
+        STRING_REF("+"),
+        test_value_string(STRING_REF("y"))
+    );
+
+    ast_node_free(&program->node);
+    parser_deinit(&p);
+    PASS();
+}
+
 SUITE_FUNC(state, parser) {
     RUN_TEST0(state, let_statements, STRING_REF("let statements"));
     RUN_TEST0(state, return_statements, STRING_REF("return statements"));
@@ -948,4 +1041,5 @@ SUITE_FUNC(state, parser) {
 
     RUN_TEST0(state, if_expression, STRING_REF("if expression"));
     RUN_TEST0(state, if_else_expression, STRING_REF("if/else expression"));
+    RUN_TEST0(state, function_literal, STRING_REF("function literal"));
 }

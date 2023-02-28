@@ -221,6 +221,64 @@ static struct ast_expression* parse_if_expression(struct parser* p) {
     return ast_if_expression_init_base(token, condition, consequence, alternative);
 }
 
+static struct ast_function_parameter_buf parse_function_parameters(struct parser* p) {
+    struct ast_function_parameter_buf parameters = {0};
+
+    if (p->peek_token.type == TOKEN_RPAREN) {
+        next_token(p);
+        return parameters;
+    }
+
+    next_token(p);
+
+    struct token id = take_cur(p);
+    BUF_PUSH(&parameters, ast_identifier_init(id, string_dup(id.literal)));
+
+    while (p->peek_token.type == TOKEN_COMMA) {
+        next_token(p);
+        next_token(p);
+
+        id = take_cur(p);
+        BUF_PUSH(&parameters, ast_identifier_init(id, string_dup(id.literal)));
+    }
+
+    if (!expect_peek(p, TOKEN_RPAREN)) {
+        for (size_t i = 0; i < parameters.len; i++) {
+            ast_expression_free(&parameters.ptr[i]->expression);
+            free(parameters.ptr[i]);
+        }
+        BUF_FREE(parameters);
+        return (struct ast_function_parameter_buf){0};
+    }
+
+    return parameters;
+}
+
+static struct ast_expression* parse_function_literal(struct parser* p) {
+    struct token token = take_cur(p);
+
+    if (!expect_peek(p, TOKEN_LPAREN)) {
+        STRING_FREE(token.literal);
+        return NULL;
+    }
+
+    struct ast_function_parameter_buf parameters = parse_function_parameters(p);
+
+    if (!expect_peek(p, TOKEN_LBRACE)) {
+        for (size_t i = 0; i < parameters.len; i++) {
+            ast_expression_free(&parameters.ptr[i]->expression);
+            free(parameters.ptr[i]);
+        }
+        BUF_FREE(parameters);
+        STRING_FREE(token.literal);
+        return NULL;
+    }
+
+    struct ast_block_statement* body = parse_block_statement(p);
+
+    return ast_function_literal_init_base(token, parameters, body);
+}
+
 static prefix_parse_fn_t* prefix_parse_fn(enum token_type type) {
     switch (type) {
         case TOKEN_IDENT:
@@ -237,6 +295,8 @@ static prefix_parse_fn_t* prefix_parse_fn(enum token_type type) {
             return &parse_grouped_expression;
         case TOKEN_IF:
             return &parse_if_expression;
+        case TOKEN_FUNCTION:
+            return &parse_function_literal;
         default:
             return NULL;
     }
@@ -273,7 +333,12 @@ static struct ast_expression* parse_expression(struct parser* p, enum precedence
         }
 
         next_token(p);
-        left_exp = infix(p, left_exp);
+        struct ast_expression* result = infix(p, left_exp);
+        if (result == NULL) {
+            ast_expression_free(left_exp);
+            return NULL;
+        }
+        left_exp = result;
     }
 
     return left_exp;

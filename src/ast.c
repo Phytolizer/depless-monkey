@@ -550,3 +550,55 @@ struct ast_if_expression* ast_if_expression_init(
     self->alternative = alternative;
     return self;
 }
+
+static struct string function_literal_token_literal(const struct ast_node* node) {
+    const struct ast_function_literal* self = (const struct ast_function_literal*)node;
+    return self->token.literal;
+}
+
+static struct string function_literal_string(const struct ast_node* node) {
+    const struct ast_function_literal* self = (const struct ast_function_literal*)node;
+    struct string buf = string_dup(ast_node_token_literal(node));
+    string_append(&buf, STRING_REF("("));
+    for (size_t i = 0; i < self->parameters.len; i++) {
+        if (i > 0) {
+            string_append(&buf, STRING_REF(", "));
+        }
+        string_append(&buf, self->parameters.ptr[i]->token.literal);
+    }
+    string_append(&buf, STRING_REF(") "));
+    struct string body_str = ast_statement_string(&self->body->statement);
+    string_append(&buf, body_str);
+    STRING_FREE(body_str);
+    return buf;
+}
+
+static void function_literal_free(struct ast_node* node) {
+    struct ast_function_literal* self = DOWNCAST(struct ast_function_literal, node);
+    STRING_FREE(self->token.literal);
+    for (size_t i = 0; i < self->parameters.len; i++) {
+        ast_expression_free(&self->parameters.ptr[i]->expression);
+        free(self->parameters.ptr[i]);
+    }
+    BUF_FREE(self->parameters);
+    ast_statement_free(&self->body->statement);
+    free(self->body);
+}
+
+struct ast_function_literal* ast_function_literal_init(
+    struct token token,
+    struct ast_function_parameter_buf parameters,
+    struct ast_block_statement* body
+) {
+    struct ast_function_literal* self = malloc(sizeof(*self));
+    self->expression = ast_expression_init(
+        AST_EXPRESSION_FUNCTION,
+        function_literal_token_literal,
+        function_literal_string,
+        function_literal_free
+    );
+    self->token = token;
+    self->parameters = parameters;
+    self->body = body;
+    return self;
+}
