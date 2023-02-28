@@ -1167,6 +1167,11 @@ SUITE_FUNC(state, parser) {
         {STRING_REF_C("2 / (5 + 5)"), STRING_REF_C("(2 / (5 + 5))")},
         {STRING_REF_C("-(5 + 5)"), STRING_REF_C("(-(5 + 5))")},
         {STRING_REF_C("!(true == true)"), STRING_REF_C("(!(true == true))")},
+        {STRING_REF_C("a + add(b * c) + d"), STRING_REF_C("((a + add((b * c))) + d)")},
+        {STRING_REF_C("add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))"),
+         STRING_REF_C("add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))")},
+        {STRING_REF_C("add(a + b + c * d / f + g)"),
+         STRING_REF_C("add((((a + b) + ((c * d) / f)) + g))")},
     };
     for (size_t i = 0; i < sizeof(operator_precedence_tests) / sizeof(*operator_precedence_tests);
          i++) {
