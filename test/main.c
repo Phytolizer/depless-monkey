@@ -1,6 +1,7 @@
 #include <inttypes.h>
 
 #include "monkey/test/ast.h"
+#include "monkey/test/evaluator.h"
 #include "monkey/test/framework.h"
 #include "monkey/test/lexer.h"
 #include "monkey/test/parser.h"
@@ -18,6 +19,7 @@ int main(int argc, char** argv) {
     }
     struct test_state state = {.verbose = verbose};
     RUN_SUITE(&state, ast, STRING_REF("ast"));
+    RUN_SUITE(&state, evaluator, STRING_REF("evaluator"));
     RUN_SUITE(&state, lexer, STRING_REF("lexer"));
     RUN_SUITE(&state, parser, STRING_REF("parser"));
 

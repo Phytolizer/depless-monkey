@@ -8,9 +8,11 @@
 
 enum object_type {
 #define X(x) OBJECT_##x,
-#include "private/object_types.inc"
+#include "monkey/private/object_types.inc"
 #undef X
 };
+
+extern struct string object_type_string(enum object_type type);
 
 struct object;
 

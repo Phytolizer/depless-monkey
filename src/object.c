@@ -11,6 +11,17 @@
         (T*)obj; \
     })
 
+struct string object_type_string(enum object_type type) {
+    switch (type) {
+#define X(x) \
+    case OBJECT_##x: \
+        return STRING_REF(#x);
+#include "monkey/private/object_types.inc"
+#undef X
+    }
+    abort();
+}
+
 struct object object_init(
     enum object_type type,
     object_inspect_callback_t* inspect_callback,
