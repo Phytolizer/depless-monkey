@@ -1,6 +1,7 @@
 #include "monkey/test/evaluator.h"
 
 #include <inttypes.h>
+#include <iso646.h>
 
 #include "monkey/evaluator.h"
 #include "monkey/lexer.h"
@@ -29,7 +30,7 @@ static struct object* test_eval(struct string input) {
 static SUBTEST_FUNC(state, integer_object, struct object* evaluated, int64_t expected) {
     TEST_ASSERT(
         state,
-        evaluated && evaluated->type == OBJECT_INT64,
+        evaluated and evaluated->type == OBJECT_INT64,
         NO_CLEANUP,
         "object is not integer. got=" STRING_FMT,
         STRING_ARG(show_obj_type(evaluated))
@@ -50,7 +51,7 @@ static SUBTEST_FUNC(state, integer_object, struct object* evaluated, int64_t exp
 static SUBTEST_FUNC(state, boolean_object, struct object* evaluated, bool expected) {
     TEST_ASSERT(
         state,
-        evaluated && evaluated->type == OBJECT_BOOLEAN,
+        evaluated and evaluated->type == OBJECT_BOOLEAN,
         NO_CLEANUP,
         "object is not boolean. got=" STRING_FMT,
         STRING_ARG(show_obj_type(evaluated))
@@ -70,29 +71,15 @@ static SUBTEST_FUNC(state, boolean_object, struct object* evaluated, bool expect
 
 static TEST_FUNC(state, integer_expression, struct string input, int64_t expected) {
     struct object* evaluated = test_eval(input);
-    RUN_SUBTEST(
-        state,
-        integer_object,
-        CLEANUP(object_free(evaluated); free(evaluated)),
-        evaluated,
-        expected
-    );
+    RUN_SUBTEST(state, integer_object, CLEANUP(object_free(evaluated)), evaluated, expected);
     object_free(evaluated);
-    free(evaluated);
     PASS();
 }
 
 static TEST_FUNC(state, boolean_expression, struct string input, bool expected) {
     struct object* evaluated = test_eval(input);
-    RUN_SUBTEST(
-        state,
-        boolean_object,
-        CLEANUP(object_free(evaluated); free(evaluated)),
-        evaluated,
-        expected
-    );
+    RUN_SUBTEST(state, boolean_object, CLEANUP(object_free(evaluated)), evaluated, expected);
     object_free(evaluated);
-    free(evaluated);
     PASS();
 }
 
@@ -105,6 +92,17 @@ SUITE_FUNC(state, evaluator) {
         {S("10"), 10},
         {S("-5"), -5},
         {S("-10"), -10},
+        {S("5 + 5 + 5 + 5 - 10"), 10},
+        {S("2 * 2 * 2 * 2 * 2"), 32},
+        {S("-50 + 100 + -50"), 0},
+        {S("5 * 2 + 10"), 20},
+        {S("5 + 2 * 10"), 25},
+        {S("20 + 2 * -10"), 0},
+        {S("50 / 2 * 2 + 10"), 60},
+        {S("2 * (5 + 10)"), 30},
+        {S("3 * 3 * 3 + 10"), 37},
+        {S("3 * (3 * 3) + 10"), 37},
+        {S("(5 + 10 * 2 + 15 / 3) * 2 + -10"), 50},
     };
     for (size_t i = 0; i < sizeof(integer_expression_tests) / sizeof(*integer_expression_tests);
          i++) {
@@ -126,6 +124,14 @@ SUITE_FUNC(state, evaluator) {
     } boolean_expression_tests[] = {
         {S("true"), true},
         {S("false"), false},
+        {S("1 < 2"), true},
+        {S("1 > 2"), false},
+        {S("1 < 1"), false},
+        {S("1 > 1"), false},
+        {S("1 == 1"), true},
+        {S("1 != 1"), false},
+        {S("1 == 2"), false},
+        {S("1 != 2"), true},
     };
     for (size_t i = 0; i < sizeof(boolean_expression_tests) / sizeof(*boolean_expression_tests);
          i++) {

@@ -1,5 +1,7 @@
 #include "monkey/evaluator.h"
 
+#include <iso646.h>
+
 #include "monkey/private/stdc.h"
 
 static struct object* eval_bang_operator_expression(struct object* right) {
@@ -13,7 +15,6 @@ static struct object* eval_bang_operator_expression(struct object* right) {
         result = false;
     }
     object_free(right);
-    free(right);
     return object_boolean_init_base(result);
 }
 
@@ -21,13 +22,11 @@ static struct object* eval_minus_prefix_operator_expression(struct object* right
     if (right == NULL) return NULL;
     if (right->type != OBJECT_INT64) {
         object_free(right);
-        free(right);
         return NULL;
     }
 
     int64_t value = ((struct object_int64*)right)->value;
     object_free(right);
-    free(right);
     return object_int64_init_base(-value);
 }
 
@@ -39,7 +38,55 @@ static struct object* eval_prefix_expression(struct string op, struct object* ri
         return eval_minus_prefix_operator_expression(right);
     } else {
         object_free(right);
-        free(right);
+        return NULL;
+    }
+}
+
+static struct object* eval_integer_infix_expression(
+    struct string op,
+    struct object_int64* left,
+    struct object_int64* right
+) {
+    int64_t left_val = left->value;
+    int64_t right_val = right->value;
+    object_free(&left->object);
+    object_free(&right->object);
+
+    if (STRING_EQUAL(op, STRING_REF("+"))) {
+        return object_int64_init_base(left_val + right_val);
+    } else if (STRING_EQUAL(op, STRING_REF("-"))) {
+        return object_int64_init_base(left_val - right_val);
+    } else if (STRING_EQUAL(op, STRING_REF("*"))) {
+        return object_int64_init_base(left_val * right_val);
+    } else if (STRING_EQUAL(op, STRING_REF("/"))) {
+        return object_int64_init_base(left_val / right_val);
+    } else if (STRING_EQUAL(op, STRING_REF("<"))) {
+        return object_boolean_init_base(left_val < right_val);
+    } else if (STRING_EQUAL(op, STRING_REF(">"))) {
+        return object_boolean_init_base(left_val > right_val);
+    } else if (STRING_EQUAL(op, STRING_REF("=="))) {
+        return object_boolean_init_base(left_val == right_val);
+    } else if (STRING_EQUAL(op, STRING_REF("!="))) {
+        return object_boolean_init_base(left_val != right_val);
+    } else {
+        return NULL;
+    }
+}
+
+static struct object*
+eval_infix_expression(struct string op, struct object* left, struct object* right) {
+    if (left == NULL || right == NULL) {
+        object_free(left);
+        object_free(right);
+        return NULL;
+    }
+    if (left->type == OBJECT_INT64 and right->type == OBJECT_INT64) {
+        return eval_integer_infix_expression(
+            op,
+            (struct object_int64*)left,
+            (struct object_int64*)right
+        );
+    } else {
         return NULL;
     }
 }
@@ -54,6 +101,12 @@ static struct object* eval_expression(struct ast_expression* expression) {
             struct ast_prefix_expression* exp = (struct ast_prefix_expression*)expression;
             struct object* right = eval_expression(exp->right);
             return eval_prefix_expression(exp->op, right);
+        }
+        case AST_EXPRESSION_INFIX: {
+            struct ast_infix_expression* exp = (struct ast_infix_expression*)expression;
+            struct object* left = eval_expression(exp->left);
+            struct object* right = eval_expression(exp->right);
+            return eval_infix_expression(exp->op, left, right);
         }
         default:
             // [TODO] eval_expression

@@ -42,6 +42,7 @@ struct string object_inspect(const struct object* object) {
 void object_free(struct object* object) {
     if (object == NULL) return;
     object->free_callback(object);
+    free(object);
 }
 
 static struct string int64_inspect(const struct object* obj) {
