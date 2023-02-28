@@ -854,7 +854,7 @@ static TEST_FUNC0(state, function_literal) {
         state,
         stmt->expression->type == AST_EXPRESSION_FUNCTION,
         CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
-        "stmt.expression is not ast_function_expression*. got=" STRING_FMT,
+        "stmt.expression is not ast_function_literal*. got=" STRING_FMT,
         STRING_ARG(ast_expression_type_string(stmt->expression->type))
     );
 
@@ -903,6 +903,78 @@ static TEST_FUNC0(state, function_literal) {
         STRING_REF("+"),
         test_value_string(STRING_REF("y"))
     );
+
+    ast_node_free(&program->node);
+    parser_deinit(&p);
+    PASS();
+}
+
+BUF_T(struct string, string);
+
+static TEST_FUNC(
+    state,
+    function_parameters,
+    struct string input,
+    struct string_buf expected_params
+) {
+    struct lexer l;
+    lexer_init(&l, input);
+    struct parser p;
+    parser_init(&p, &l);
+    struct ast_program* program = parse_program(&p);
+    RUN_SUBTEST(
+        state,
+        check_parser_errors,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        &p
+    );
+
+    TEST_ASSERT(
+        state,
+        program->statements.len == 1,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "program has not enough statements. got=%zu",
+        program->statements.len
+    );
+
+    TEST_ASSERT(
+        state,
+        program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
+        STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
+    );
+
+    struct ast_expression_statement* stmt =
+        (struct ast_expression_statement*)program->statements.ptr[0];
+
+    TEST_ASSERT(
+        state,
+        stmt->expression->type == AST_EXPRESSION_FUNCTION,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "stmt.expression is not ast_function_literal*. got=" STRING_FMT,
+        STRING_ARG(ast_expression_type_string(stmt->expression->type))
+    );
+
+    struct ast_function_literal* function = (struct ast_function_literal*)stmt->expression;
+    TEST_ASSERT(
+        state,
+        function->parameters.len == expected_params.len,
+        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        "function literal parameters wrong. want %zu, got=%zu",
+        expected_params.len,
+        function->parameters.len
+    );
+
+    for (size_t i = 0; i < expected_params.len; i++) {
+        RUN_SUBTEST(
+            state,
+            identifier,
+            CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+            &function->parameters.ptr[i]->expression,
+            expected_params.ptr[i]
+        );
+    }
 
     ast_node_free(&program->node);
     parser_deinit(&p);
@@ -1042,4 +1114,28 @@ SUITE_FUNC(state, parser) {
     RUN_TEST0(state, if_expression, STRING_REF("if expression"));
     RUN_TEST0(state, if_else_expression, STRING_REF("if/else expression"));
     RUN_TEST0(state, function_literal, STRING_REF("function literal"));
+
+    struct {
+        struct string input;
+        struct string_buf expected_params;
+    } function_parameters_tests[] = {
+        {STRING_REF_C("fn() {}"), BUF_LIT(struct string_buf)},
+        {STRING_REF_C("fn(x) {}"), BUF_LIT(struct string_buf, STRING_REF_C("x"))},
+        {STRING_REF_C("fn(x, y, z) {}"),
+         BUF_LIT(struct string_buf, STRING_REF_C("x"), STRING_REF_C("y"), STRING_REF_C("z"))},
+    };
+    for (size_t i = 0; i < sizeof(function_parameters_tests) / sizeof(*function_parameters_tests);
+         i++) {
+        RUN_TEST(
+            state,
+            function_parameters,
+            string_printf(
+                "function parameters (\"" STRING_FMT "\")",
+                STRING_ARG(function_parameters_tests[i].input)
+            ),
+            function_parameters_tests[i].input,
+            function_parameters_tests[i].expected_params
+        );
+        BUF_FREE(function_parameters_tests[i].expected_params);
+    }
 }
