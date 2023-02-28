@@ -62,4 +62,15 @@ static inline struct object* object_null_init_base(void) {
     return &object_null_init()->object;
 }
 
+struct object_return_value {
+    struct object object;
+    struct object* value;
+};
+
+extern struct object_return_value* object_return_value_init(struct object* value);
+static inline struct object* object_return_value_init_base(struct object* value) {
+    return &object_return_value_init(value)->object;
+}
+extern struct object* object_return_value_unwrap(struct object* object);
+
 #endif  // MONKEY_OBJECT_H_

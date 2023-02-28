@@ -79,8 +79,34 @@ static struct string null_inspect(MONKEY_UNUSED const struct object* obj) {
 
 static void null_free(MONKEY_UNUSED struct object* obj) {}
 
-extern struct object_null* object_null_init(void) {
+struct object_null* object_null_init(void) {
     struct object_null* self = malloc(sizeof(*self));
     self->object = object_init(OBJECT_NULL, null_inspect, null_free);
     return self;
+}
+
+static struct string return_value_inspect(const struct object* obj) {
+    const struct object_return_value* self = (const struct object_return_value*)obj;
+    return object_inspect(self->value);
+}
+
+static void return_value_free(struct object* obj) {
+    struct object_return_value* self = DOWNCAST(struct object_return_value, obj);
+    object_free(self->value);
+}
+
+struct object_return_value* object_return_value_init(struct object* value) {
+    struct object_return_value* self = malloc(sizeof(*self));
+    self->object = object_init(OBJECT_RETURN_VALUE, return_value_inspect, return_value_free);
+    self->value = value;
+    return self;
+}
+
+struct object* object_return_value_unwrap(struct object* object) {
+    if (object == NULL) return NULL;
+    struct object_return_value* self = (struct object_return_value*)object;
+    struct object* value = self->value;
+    self->value = NULL;
+    object_free(object);
+    return value;
 }

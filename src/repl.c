@@ -7,7 +7,7 @@
 
 const struct string PROMPT = STRING_REF_C(">> ");
 
-extern void repl_start(FILE* in, FILE* out) {
+void repl_start(FILE* in, FILE* out) {
     struct string line = {0};
     while (true) {
         fprintf(out, STRING_FMT, STRING_ARG(PROMPT));

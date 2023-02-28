@@ -248,4 +248,26 @@ SUITE_FUNC(state, evaluator) {
             if_else_expression_tests[i].expected
         );
     }
+
+    struct {
+        struct string input;
+        int64_t expected;
+    } return_statement_tests[] = {
+        {S("return 10;"), 10},
+        {S("return 10; 9;"), 10},
+        {S("return 2 * 5; 9;"), 10},
+        {S("9; return 2 * 5; 9;"), 10},
+    };
+    for (size_t i = 0; i < sizeof(return_statement_tests) / sizeof(*return_statement_tests); i++) {
+        RUN_TEST(
+            state,
+            integer_expression,
+            string_printf(
+                "return statement (\"" STRING_FMT "\")",
+                STRING_ARG(return_statement_tests[i].input)
+            ),
+            return_statement_tests[i].input,
+            return_statement_tests[i].expected
+        );
+    }
 }

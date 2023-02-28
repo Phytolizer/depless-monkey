@@ -178,6 +178,11 @@ static struct object* eval_statement(struct ast_statement* statement) {
             return eval_expression(((struct ast_expression_statement*)statement)->expression);
         case AST_STATEMENT_BLOCK:
             return eval_statements(((struct ast_block_statement*)statement)->statements);
+        case AST_STATEMENT_RETURN: {
+            struct object* val =
+                eval_expression(((struct ast_return_statement*)statement)->return_value);
+            return object_return_value_init_base(val);
+        }
         default:
             // [TODO] eval_statement
             return object_null_init_base();
@@ -190,6 +195,9 @@ static struct object* eval_statements(struct ast_statement_buf statements) {
     for (size_t i = 0; i < statements.len; i++) {
         object_free(result);
         result = eval_statement(statements.ptr[i]);
+        if (result and result->type == OBJECT_RETURN_VALUE) {
+            return object_return_value_unwrap(result);
+        }
     }
 
     return result;
