@@ -4,6 +4,8 @@
 #include <monkey/lexer.h>
 #include <monkey/parser.h>
 
+#define S(s) STRING_REF(s)
+
 enum test_value_type {
     TEST_VALUE_INT64,
     TEST_VALUE_STRING,
@@ -50,7 +52,7 @@ static SUBTEST_FUNC(state, check_parser_errors, struct parser* p) {
 static SUBTEST_FUNC(state, let_statement, struct ast_statement* s, struct string name) {
     TEST_ASSERT(
         state,
-        STRING_EQUAL(ast_node_token_literal(&s->node), STRING_REF("let")),
+        STRING_EQUAL(ast_node_token_literal(&s->node), S("let")),
         NO_CLEANUP,
         "s.token_literal() not 'let'. got=\"" STRING_FMT "\"",
         STRING_ARG(ast_node_token_literal(&s->node))
@@ -164,7 +166,7 @@ static SUBTEST_FUNC(state, boolean_literal, struct ast_expression* exp, bool val
         boolean->value ? "true" : "false"
     );
 
-    struct string value_str = value ? STRING_REF("true") : STRING_REF("false");
+    struct string value_str = value ? S("true") : S("false");
     TEST_ASSERT(
         state,
         STRING_EQUAL(ast_node_token_literal(&boolean->expression.node), value_str),
@@ -227,11 +229,10 @@ static SUBTEST_FUNC(
 }
 
 static TEST_FUNC0(state, let_statements) {
-    const struct string input = STRING_REF_C(
-        "let x = 5;\n"
-        "let y = 10;\n"
-        "let foobar = 838383;\n"
-    );
+    const struct string input =
+        S("let x = 5;\n"
+          "let y = 10;\n"
+          "let foobar = 838383;\n");
     struct lexer l;
     lexer_init(&l, input);
     struct parser p;
@@ -255,9 +256,9 @@ static TEST_FUNC0(state, let_statements) {
     const struct {
         struct string expected_identifier;
     } tests[] = {
-        {STRING_REF_C("x")},
-        {STRING_REF_C("y")},
-        {STRING_REF_C("foobar")},
+        {S("x")},
+        {S("y")},
+        {S("foobar")},
     };
 
     for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
@@ -277,11 +278,10 @@ static TEST_FUNC0(state, let_statements) {
 }
 
 static TEST_FUNC0(state, return_statements) {
-    const struct string input = STRING_REF_C(
-        "return 5;\n"
-        "return 10;\n"
-        "return 993322;\n"
-    );
+    const struct string input =
+        S("return 5;\n"
+          "return 10;\n"
+          "return 993322;\n");
 
     struct lexer l;
     lexer_init(&l, input);
@@ -317,10 +317,7 @@ static TEST_FUNC0(state, return_statements) {
             (struct ast_return_statement*)program->statements.ptr[i];
         TEST_ASSERT(
             state,
-            STRING_EQUAL(
-                ast_node_token_literal(&return_stmt->statement.node),
-                STRING_REF("return")
-            ),
+            STRING_EQUAL(ast_node_token_literal(&return_stmt->statement.node), S("return")),
             CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
             "return_stmt.token_literal() not 'return', got \"" STRING_FMT "\"",
             STRING_ARG(ast_node_token_literal(&return_stmt->statement.node))
@@ -333,7 +330,7 @@ static TEST_FUNC0(state, return_statements) {
 }
 
 static TEST_FUNC0(state, identifier_expression) {
-    const struct string input = STRING_REF_C("foobar;");
+    const struct string input = S("foobar;");
 
     struct lexer l;
     lexer_init(&l, input);
@@ -370,7 +367,7 @@ static TEST_FUNC0(state, identifier_expression) {
         identifier,
         CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
         stmt->expression,
-        STRING_REF("foobar")
+        S("foobar")
     );
 
     ast_node_free(&program->node);
@@ -379,7 +376,7 @@ static TEST_FUNC0(state, identifier_expression) {
 }
 
 static TEST_FUNC0(state, integer_literal_expression) {
-    const struct string input = STRING_REF_C("5;");
+    const struct string input = S("5;");
 
     struct lexer l;
     lexer_init(&l, input);
@@ -618,7 +615,7 @@ static TEST_FUNC(state, operator_precedence, struct string input, struct string 
 }
 
 static TEST_FUNC0(state, if_expression) {
-    const struct string input = STRING_REF_C("if (x < y) { x }");
+    const struct string input = S("if (x < y) { x }");
     struct lexer l;
     lexer_init(&l, input);
     struct parser p;
@@ -663,9 +660,9 @@ static TEST_FUNC0(state, if_expression) {
         infix_expression,
         CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
         exp->condition,
-        test_value_string(STRING_REF("x")),
-        STRING_REF("<"),
-        test_value_string(STRING_REF("y"))
+        test_value_string(S("x")),
+        S("<"),
+        test_value_string(S("y"))
     );
 
     TEST_ASSERT(
@@ -691,7 +688,7 @@ static TEST_FUNC0(state, if_expression) {
         identifier,
         CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
         consequence->expression,
-        STRING_REF("x")
+        S("x")
     );
 
     TEST_ASSERT(
@@ -708,7 +705,7 @@ static TEST_FUNC0(state, if_expression) {
 }
 
 static TEST_FUNC0(state, if_else_expression) {
-    const struct string input = STRING_REF_C("if (x < y) { x } else { y }");
+    const struct string input = S("if (x < y) { x } else { y }");
     struct lexer l;
     lexer_init(&l, input);
     struct parser p;
@@ -753,9 +750,9 @@ static TEST_FUNC0(state, if_else_expression) {
         infix_expression,
         CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
         exp->condition,
-        test_value_string(STRING_REF("x")),
-        STRING_REF("<"),
-        test_value_string(STRING_REF("y"))
+        test_value_string(S("x")),
+        S("<"),
+        test_value_string(S("y"))
     );
 
     TEST_ASSERT(
@@ -781,7 +778,7 @@ static TEST_FUNC0(state, if_else_expression) {
         identifier,
         CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
         consequence->expression,
-        STRING_REF("x")
+        S("x")
     );
 
     TEST_ASSERT(
@@ -808,7 +805,7 @@ static TEST_FUNC0(state, if_else_expression) {
         identifier,
         CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
         alternative->expression,
-        STRING_REF("y")
+        S("y")
     );
 
     ast_node_free(&program->node);
@@ -817,7 +814,7 @@ static TEST_FUNC0(state, if_else_expression) {
 }
 
 static TEST_FUNC0(state, function_literal) {
-    const struct string input = STRING_REF_C("fn(x, y) { x + y; }");
+    const struct string input = S("fn(x, y) { x + y; }");
 
     struct lexer l;
     lexer_init(&l, input);
@@ -872,7 +869,7 @@ static TEST_FUNC0(state, function_literal) {
         identifier,
         CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
         &function->parameters.ptr[0]->expression,
-        STRING_REF("x")
+        S("x")
     );
 
     RUN_SUBTEST(
@@ -880,7 +877,7 @@ static TEST_FUNC0(state, function_literal) {
         identifier,
         CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
         &function->parameters.ptr[1]->expression,
-        STRING_REF("y")
+        S("y")
     );
 
     TEST_ASSERT(
@@ -899,9 +896,9 @@ static TEST_FUNC0(state, function_literal) {
         infix_expression,
         CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
         body_stmt->expression,
-        test_value_string(STRING_REF("x")),
-        STRING_REF("+"),
-        test_value_string(STRING_REF("y"))
+        test_value_string(S("x")),
+        S("+"),
+        test_value_string(S("y"))
     );
 
     ast_node_free(&program->node);
@@ -982,7 +979,7 @@ static TEST_FUNC(
 }
 
 static TEST_FUNC0(state, call_expression) {
-    const struct string input = STRING_REF_C("add(1, 2 * 3, 4 + 5);");
+    const struct string input = S("add(1, 2 * 3, 4 + 5);");
 
     struct lexer l;
     lexer_init(&l, input);
@@ -1030,7 +1027,7 @@ static TEST_FUNC0(state, call_expression) {
         identifier,
         CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
         exp->function,
-        STRING_REF("add")
+        S("add")
     );
 
     TEST_ASSERT(
@@ -1054,7 +1051,7 @@ static TEST_FUNC0(state, call_expression) {
         CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
         exp->arguments.ptr[1],
         test_value_int64(2),
-        STRING_REF("*"),
+        S("*"),
         test_value_int64(3)
     );
     RUN_SUBTEST(
@@ -1063,7 +1060,7 @@ static TEST_FUNC0(state, call_expression) {
         CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
         exp->arguments.ptr[2],
         test_value_int64(4),
-        STRING_REF("+"),
+        S("+"),
         test_value_int64(5)
     );
 
@@ -1073,17 +1070,17 @@ static TEST_FUNC0(state, call_expression) {
 }
 
 SUITE_FUNC(state, parser) {
-    RUN_TEST0(state, let_statements, STRING_REF("let statements"));
-    RUN_TEST0(state, return_statements, STRING_REF("return statements"));
-    RUN_TEST0(state, identifier_expression, STRING_REF("identifier expression"));
-    RUN_TEST0(state, integer_literal_expression, STRING_REF("integer literal expression"));
+    RUN_TEST0(state, let_statements, S("let statements"));
+    RUN_TEST0(state, return_statements, S("return statements"));
+    RUN_TEST0(state, identifier_expression, S("identifier expression"));
+    RUN_TEST0(state, integer_literal_expression, S("integer literal expression"));
     struct {
         struct string input;
         struct string op;
         struct test_value value;
     } prefix_tests[] = {
-        {STRING_REF_C("!5;"), STRING_REF("!"), test_value_int64(5)},
-        {STRING_REF_C("-15;"), STRING_REF("-"), test_value_int64(15)},
+        {S("!5;"), S("!"), test_value_int64(5)},
+        {S("-15;"), S("-"), test_value_int64(15)},
     };
     for (size_t i = 0; i < sizeof(prefix_tests) / sizeof(*prefix_tests); i++) {
         RUN_TEST(
@@ -1105,26 +1102,17 @@ SUITE_FUNC(state, parser) {
         struct string op;
         struct test_value right_value;
     } infix_tests[] = {
-        {STRING_REF_C("5 + 5;"), test_value_int64(5), STRING_REF("+"), test_value_int64(5)},
-        {STRING_REF_C("5 - 5;"), test_value_int64(5), STRING_REF("-"), test_value_int64(5)},
-        {STRING_REF_C("5 * 5;"), test_value_int64(5), STRING_REF("*"), test_value_int64(5)},
-        {STRING_REF_C("5 / 5;"), test_value_int64(5), STRING_REF("/"), test_value_int64(5)},
-        {STRING_REF_C("5 > 5;"), test_value_int64(5), STRING_REF(">"), test_value_int64(5)},
-        {STRING_REF_C("5 < 5;"), test_value_int64(5), STRING_REF("<"), test_value_int64(5)},
-        {STRING_REF_C("5 == 5;"), test_value_int64(5), STRING_REF("=="), test_value_int64(5)},
-        {STRING_REF_C("5 != 5;"), test_value_int64(5), STRING_REF("!="), test_value_int64(5)},
-        {STRING_REF_C("true == true"),
-         test_value_boolean(true),
-         STRING_REF_C("=="),
-         test_value_boolean(true)},
-        {STRING_REF_C("true != false"),
-         test_value_boolean(true),
-         STRING_REF_C("!="),
-         test_value_boolean(false)},
-        {STRING_REF_C("false == false"),
-         test_value_boolean(false),
-         STRING_REF_C("=="),
-         test_value_boolean(false)},
+        {S("5 + 5;"), test_value_int64(5), S("+"), test_value_int64(5)},
+        {S("5 - 5;"), test_value_int64(5), S("-"), test_value_int64(5)},
+        {S("5 * 5;"), test_value_int64(5), S("*"), test_value_int64(5)},
+        {S("5 / 5;"), test_value_int64(5), S("/"), test_value_int64(5)},
+        {S("5 > 5;"), test_value_int64(5), S(">"), test_value_int64(5)},
+        {S("5 < 5;"), test_value_int64(5), S("<"), test_value_int64(5)},
+        {S("5 == 5;"), test_value_int64(5), S("=="), test_value_int64(5)},
+        {S("5 != 5;"), test_value_int64(5), S("!="), test_value_int64(5)},
+        {S("true == true"), test_value_boolean(true), S("=="), test_value_boolean(true)},
+        {S("true != false"), test_value_boolean(true), S("!="), test_value_boolean(false)},
+        {S("false == false"), test_value_boolean(false), S("=="), test_value_boolean(false)},
     };
     for (size_t i = 0; i < sizeof(infix_tests) / sizeof(*infix_tests); i++) {
         RUN_TEST(
@@ -1145,33 +1133,31 @@ SUITE_FUNC(state, parser) {
         struct string input;
         struct string expected;
     } operator_precedence_tests[] = {
-        {STRING_REF_C("-a * b;"), STRING_REF("((-a) * b)")},
-        {STRING_REF_C("!-a;"), STRING_REF("(!(-a))")},
-        {STRING_REF_C("a + b + c;"), STRING_REF("((a + b) + c)")},
-        {STRING_REF_C("a + b - c;"), STRING_REF("((a + b) - c)")},
-        {STRING_REF_C("a * b * c;"), STRING_REF("((a * b) * c)")},
-        {STRING_REF_C("a * b / c;"), STRING_REF("((a * b) / c)")},
-        {STRING_REF_C("a + b / c;"), STRING_REF("(a + (b / c))")},
-        {STRING_REF_C("a + b * c + d / e - f;"), STRING_REF("(((a + (b * c)) + (d / e)) - f)")},
-        {STRING_REF_C("3 + 4; -5 * 5;"), STRING_REF("(3 + 4)((-5) * 5)")},
-        {STRING_REF_C("5 > 4 == 3 < 4;"), STRING_REF("((5 > 4) == (3 < 4))")},
-        {STRING_REF_C("5 < 4 != 3 > 4;"), STRING_REF("((5 < 4) != (3 > 4))")},
-        {STRING_REF_C("3 + 4 * 5 == 3 * 1 + 4 * 5;"),
-         STRING_REF("((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))")},
-        {STRING_REF_C("true"), STRING_REF_C("true")},
-        {STRING_REF_C("false"), STRING_REF_C("false")},
-        {STRING_REF_C("3 > 5 == false"), STRING_REF_C("((3 > 5) == false)")},
-        {STRING_REF_C("3 < 5 == true"), STRING_REF_C("((3 < 5) == true)")},
-        {STRING_REF_C("1 + (2 + 3) + 4"), STRING_REF_C("((1 + (2 + 3)) + 4)")},
-        {STRING_REF_C("(5 + 5) * 2"), STRING_REF_C("((5 + 5) * 2)")},
-        {STRING_REF_C("2 / (5 + 5)"), STRING_REF_C("(2 / (5 + 5))")},
-        {STRING_REF_C("-(5 + 5)"), STRING_REF_C("(-(5 + 5))")},
-        {STRING_REF_C("!(true == true)"), STRING_REF_C("(!(true == true))")},
-        {STRING_REF_C("a + add(b * c) + d"), STRING_REF_C("((a + add((b * c))) + d)")},
-        {STRING_REF_C("add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))"),
-         STRING_REF_C("add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))")},
-        {STRING_REF_C("add(a + b + c * d / f + g)"),
-         STRING_REF_C("add((((a + b) + ((c * d) / f)) + g))")},
+        {S("-a * b;"), S("((-a) * b)")},
+        {S("!-a;"), S("(!(-a))")},
+        {S("a + b + c;"), S("((a + b) + c)")},
+        {S("a + b - c;"), S("((a + b) - c)")},
+        {S("a * b * c;"), S("((a * b) * c)")},
+        {S("a * b / c;"), S("((a * b) / c)")},
+        {S("a + b / c;"), S("(a + (b / c))")},
+        {S("a + b * c + d / e - f;"), S("(((a + (b * c)) + (d / e)) - f)")},
+        {S("3 + 4; -5 * 5;"), S("(3 + 4)((-5) * 5)")},
+        {S("5 > 4 == 3 < 4;"), S("((5 > 4) == (3 < 4))")},
+        {S("5 < 4 != 3 > 4;"), S("((5 < 4) != (3 > 4))")},
+        {S("3 + 4 * 5 == 3 * 1 + 4 * 5;"), S("((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))")},
+        {S("true"), S("true")},
+        {S("false"), S("false")},
+        {S("3 > 5 == false"), S("((3 > 5) == false)")},
+        {S("3 < 5 == true"), S("((3 < 5) == true)")},
+        {S("1 + (2 + 3) + 4"), S("((1 + (2 + 3)) + 4)")},
+        {S("(5 + 5) * 2"), S("((5 + 5) * 2)")},
+        {S("2 / (5 + 5)"), S("(2 / (5 + 5))")},
+        {S("-(5 + 5)"), S("(-(5 + 5))")},
+        {S("!(true == true)"), S("(!(true == true))")},
+        {S("a + add(b * c) + d"), S("((a + add((b * c))) + d)")},
+        {S("add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))"),
+         S("add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))")},
+        {S("add(a + b + c * d / f + g)"), S("add((((a + b) + ((c * d) / f)) + g))")},
     };
     for (size_t i = 0; i < sizeof(operator_precedence_tests) / sizeof(*operator_precedence_tests);
          i++) {
@@ -1191,8 +1177,8 @@ SUITE_FUNC(state, parser) {
         struct string input;
         bool expected;
     } boolean_tests[] = {
-        {STRING_REF_C("true;"), true},
-        {STRING_REF_C("false;"), false},
+        {S("true;"), true},
+        {S("false;"), false},
     };
     for (size_t i = 0; i < sizeof(boolean_tests) / sizeof(*boolean_tests); i++) {
         RUN_TEST(
@@ -1207,18 +1193,17 @@ SUITE_FUNC(state, parser) {
         );
     }
 
-    RUN_TEST0(state, if_expression, STRING_REF("if expression"));
-    RUN_TEST0(state, if_else_expression, STRING_REF("if/else expression"));
-    RUN_TEST0(state, function_literal, STRING_REF("function literal"));
+    RUN_TEST0(state, if_expression, S("if expression"));
+    RUN_TEST0(state, if_else_expression, S("if/else expression"));
+    RUN_TEST0(state, function_literal, S("function literal"));
 
     struct {
         struct string input;
         struct string_buf expected_params;
     } function_parameters_tests[] = {
-        {STRING_REF_C("fn() {}"), BUF_LIT(struct string_buf)},
-        {STRING_REF_C("fn(x) {}"), BUF_LIT(struct string_buf, STRING_REF_C("x"))},
-        {STRING_REF_C("fn(x, y, z) {}"),
-         BUF_LIT(struct string_buf, STRING_REF_C("x"), STRING_REF_C("y"), STRING_REF_C("z"))},
+        {S("fn() {}"), BUF_LIT(struct string_buf)},
+        {S("fn(x) {}"), BUF_LIT(struct string_buf, S("x"))},
+        {S("fn(x, y, z) {}"), BUF_LIT(struct string_buf, S("x"), S("y"), S("z"))},
     };
     for (size_t i = 0; i < sizeof(function_parameters_tests) / sizeof(*function_parameters_tests);
          i++) {
@@ -1235,5 +1220,5 @@ SUITE_FUNC(state, parser) {
         BUF_FREE(function_parameters_tests[i].expected_params);
     }
 
-    RUN_TEST0(state, call_expression, STRING_REF("call expression"));
+    RUN_TEST0(state, call_expression, S("call expression"));
 }
