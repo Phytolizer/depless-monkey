@@ -1,1 +1,2 @@
 *.inc linguist-language=C
+/build.sh linguist-generated
