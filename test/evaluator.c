@@ -10,6 +10,10 @@
 
 #define S(x) STRING_REF(x)
 
+static struct string show_obj_type(struct object* obj) {
+    return obj != NULL ? object_type_string(obj->type) : S("<NULL>");
+}
+
 static struct object* test_eval(struct string input) {
     struct lexer l;
     lexer_init(&l, input);
@@ -25,10 +29,10 @@ static struct object* test_eval(struct string input) {
 static SUBTEST_FUNC(state, integer_object, struct object* evaluated, int64_t expected) {
     TEST_ASSERT(
         state,
-        evaluated->type == OBJECT_INT64,
+        evaluated && evaluated->type == OBJECT_INT64,
         NO_CLEANUP,
         "object is not integer. got=" STRING_FMT,
-        STRING_ARG(object_type_string(evaluated->type))
+        STRING_ARG(show_obj_type(evaluated))
     );
     struct object_int64* int_obj = (struct object_int64*)evaluated;
     TEST_ASSERT(
@@ -43,11 +47,46 @@ static SUBTEST_FUNC(state, integer_object, struct object* evaluated, int64_t exp
     PASS();
 }
 
+static SUBTEST_FUNC(state, boolean_object, struct object* evaluated, bool expected) {
+    TEST_ASSERT(
+        state,
+        evaluated && evaluated->type == OBJECT_BOOLEAN,
+        NO_CLEANUP,
+        "object is not boolean. got=" STRING_FMT,
+        STRING_ARG(show_obj_type(evaluated))
+    );
+    struct object_boolean* bool_obj = (struct object_boolean*)evaluated;
+    TEST_ASSERT(
+        state,
+        bool_obj->value == expected,
+        NO_CLEANUP,
+        "object has wrong value. got=%s, want=%s",
+        bool_obj->value ? "true" : "false",
+        expected ? "true" : "false"
+    );
+
+    PASS();
+}
+
 static TEST_FUNC(state, integer_expression, struct string input, int64_t expected) {
     struct object* evaluated = test_eval(input);
     RUN_SUBTEST(
         state,
         integer_object,
+        CLEANUP(object_free(evaluated); free(evaluated)),
+        evaluated,
+        expected
+    );
+    object_free(evaluated);
+    free(evaluated);
+    PASS();
+}
+
+static TEST_FUNC(state, boolean_expression, struct string input, bool expected) {
+    struct object* evaluated = test_eval(input);
+    RUN_SUBTEST(
+        state,
+        boolean_object,
         CLEANUP(object_free(evaluated); free(evaluated)),
         evaluated,
         expected
@@ -73,6 +112,24 @@ SUITE_FUNC(state, evaluator) {
             STRING_REF("integer expression"),
             integer_expression_tests[i].input,
             integer_expression_tests[i].expected
+        );
+    }
+
+    struct {
+        struct string input;
+        bool expected;
+    } boolean_expression_tests[] = {
+        {S("true"), true},
+        {S("false"), false},
+    };
+    for (size_t i = 0; i < sizeof(boolean_expression_tests) / sizeof(*boolean_expression_tests);
+         i++) {
+        RUN_TEST(
+            state,
+            boolean_expression,
+            STRING_REF("boolean expression"),
+            boolean_expression_tests[i].input,
+            boolean_expression_tests[i].expected
         );
     }
 }

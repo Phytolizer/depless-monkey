@@ -6,6 +6,8 @@ static struct object* eval_expression(struct ast_expression* expression) {
     switch (expression->type) {
         case AST_EXPRESSION_INTEGER_LITERAL:
             return object_int64_init_base(((struct ast_integer_literal*)expression)->value);
+        case AST_EXPRESSION_BOOLEAN:
+            return object_boolean_init_base(((struct ast_boolean*)expression)->value);
         default:
             // [TODO] eval_expression
             return NULL;
