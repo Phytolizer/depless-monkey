@@ -2,12 +2,41 @@
 
 #include "monkey/private/stdc.h"
 
+static struct object* eval_bang_operator_expression(struct object* right) {
+    if (right == NULL) return NULL;
+    bool result;
+    if (right->type == OBJECT_BOOLEAN) {
+        result = !((struct object_boolean*)right)->value;
+    } else if (right->type == OBJECT_NULL) {
+        result = true;
+    } else {
+        result = false;
+    }
+    object_free(right);
+    free(right);
+    return object_boolean_init_base(result);
+}
+
+static struct object* eval_prefix_expression(struct string op, struct object* right) {
+    if (right == NULL) return NULL;
+    if (STRING_EQUAL(op, STRING_REF("!"))) {
+        return eval_bang_operator_expression(right);
+    } else {
+        return NULL;
+    }
+}
+
 static struct object* eval_expression(struct ast_expression* expression) {
     switch (expression->type) {
         case AST_EXPRESSION_INTEGER_LITERAL:
             return object_int64_init_base(((struct ast_integer_literal*)expression)->value);
         case AST_EXPRESSION_BOOLEAN:
             return object_boolean_init_base(((struct ast_boolean*)expression)->value);
+        case AST_EXPRESSION_PREFIX: {
+            struct ast_prefix_expression* exp = (struct ast_prefix_expression*)expression;
+            struct object* right = eval_expression(exp->right);
+            return eval_prefix_expression(exp->op, right);
+        }
         default:
             // [TODO] eval_expression
             return NULL;

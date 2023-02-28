@@ -109,7 +109,10 @@ SUITE_FUNC(state, evaluator) {
         RUN_TEST(
             state,
             integer_expression,
-            STRING_REF("integer expression"),
+            string_printf(
+                "integer expression (\"" STRING_FMT "\")",
+                STRING_ARG(integer_expression_tests[i].input)
+            ),
             integer_expression_tests[i].input,
             integer_expression_tests[i].expected
         );
@@ -127,9 +130,36 @@ SUITE_FUNC(state, evaluator) {
         RUN_TEST(
             state,
             boolean_expression,
-            STRING_REF("boolean expression"),
+            string_printf(
+                "boolean expression (\"" STRING_FMT "\")",
+                STRING_ARG(boolean_expression_tests[i].input)
+            ),
             boolean_expression_tests[i].input,
             boolean_expression_tests[i].expected
+        );
+    }
+
+    struct {
+        struct string input;
+        bool expected;
+    } bang_operator_tests[] = {
+        {S("!true"), false},
+        {S("!false"), true},
+        {S("!5"), false},
+        {S("!!true"), true},
+        {S("!!false"), false},
+        {S("!!5"), true},
+    };
+    for (size_t i = 0; i < sizeof(bang_operator_tests) / sizeof(*bang_operator_tests); i++) {
+        RUN_TEST(
+            state,
+            boolean_expression,
+            string_printf(
+                "bang operator (\"" STRING_FMT "\")",
+                STRING_ARG(bang_operator_tests[i].input)
+            ),
+            bang_operator_tests[i].input,
+            bang_operator_tests[i].expected
         );
     }
 }
