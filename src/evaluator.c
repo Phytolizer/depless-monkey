@@ -28,6 +28,10 @@ static bool objects_equal(struct object* left, struct object* right) {
     return result;
 }
 
+static bool is_error(struct object* obj) {
+    return obj != NULL and obj->type == OBJECT_ERROR;
+}
+
 static struct object* eval_bang_operator_expression(struct object* right) {
     if (right == NULL) return object_null_init_base();
     bool result;
@@ -177,7 +181,8 @@ static struct object* eval_expression(struct ast_expression* expression);
 
 static struct object* eval_if_expression(struct ast_if_expression* expression) {
     struct object* condition = eval_expression(expression->condition);
-    if (condition == NULL) return object_null_init_base();
+    if (is_error(condition)) return condition;
+
     if (is_truthy(condition)) {
         object_free(condition);
         return eval_block_statement(expression->consequence);
@@ -200,12 +205,20 @@ static struct object* eval_expression(struct ast_expression* expression) {
         case AST_EXPRESSION_PREFIX: {
             struct ast_prefix_expression* exp = (struct ast_prefix_expression*)expression;
             struct object* right = eval_expression(exp->right);
+            if (is_error(right)) return right;
+
             return eval_prefix_expression(exp->op, right);
         }
         case AST_EXPRESSION_INFIX: {
             struct ast_infix_expression* exp = (struct ast_infix_expression*)expression;
             struct object* left = eval_expression(exp->left);
+            if (is_error(left)) return left;
             struct object* right = eval_expression(exp->right);
+            if (is_error(right)) {
+                object_free(left);
+                return right;
+            }
+
             return eval_infix_expression(exp->op, left, right);
         }
         case AST_EXPRESSION_IF:
@@ -225,6 +238,8 @@ static struct object* eval_statement(struct ast_statement* statement) {
         case AST_STATEMENT_RETURN: {
             struct object* val =
                 eval_expression(((struct ast_return_statement*)statement)->return_value);
+            if (is_error(val)) return val;
+
             return object_return_value_init_base(val);
         }
         default:
@@ -254,7 +269,7 @@ static struct object* eval_program(struct ast_program* program) {
     return result;
 }
 
-struct object* eval(MONKEY_UNUSED struct ast_node* node) {
+struct object* eval(struct ast_node* node) {
     switch (node->type) {
         case AST_NODE_EXPRESSION:
             return eval_expression((struct ast_expression*)node);
