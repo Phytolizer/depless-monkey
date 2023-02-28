@@ -17,11 +17,29 @@ static struct object* eval_bang_operator_expression(struct object* right) {
     return object_boolean_init_base(result);
 }
 
+static struct object* eval_minus_prefix_operator_expression(struct object* right) {
+    if (right == NULL) return NULL;
+    if (right->type != OBJECT_INT64) {
+        object_free(right);
+        free(right);
+        return NULL;
+    }
+
+    int64_t value = ((struct object_int64*)right)->value;
+    object_free(right);
+    free(right);
+    return object_int64_init_base(-value);
+}
+
 static struct object* eval_prefix_expression(struct string op, struct object* right) {
     if (right == NULL) return NULL;
     if (STRING_EQUAL(op, STRING_REF("!"))) {
         return eval_bang_operator_expression(right);
+    } else if (STRING_EQUAL(op, STRING_REF("-"))) {
+        return eval_minus_prefix_operator_expression(right);
     } else {
+        object_free(right);
+        free(right);
         return NULL;
     }
 }

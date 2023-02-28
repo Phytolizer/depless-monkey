@@ -103,6 +103,8 @@ SUITE_FUNC(state, evaluator) {
     } integer_expression_tests[] = {
         {S("5"), 5},
         {S("10"), 10},
+        {S("-5"), -5},
+        {S("-10"), -10},
     };
     for (size_t i = 0; i < sizeof(integer_expression_tests) / sizeof(*integer_expression_tests);
          i++) {
