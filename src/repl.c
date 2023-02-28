@@ -1,5 +1,6 @@
 #include "monkey/repl.h"
 
+#include "monkey/evaluator.h"
 #include "monkey/lexer.h"
 #include "monkey/parser.h"
 #include "monkey/string.h"
@@ -32,9 +33,14 @@ extern void repl_start(FILE* in, FILE* out) {
             continue;
         }
 
-        struct string output = ast_node_string(&program->node);
-        fprintf(out, STRING_FMT "\n", STRING_ARG(output));
-        STRING_FREE(output);
+        struct object* result = eval(&program->node);
+        if (result != NULL) {
+            struct string result_str = object_inspect(result);
+            fprintf(out, STRING_FMT "\n", STRING_ARG(result_str));
+            STRING_FREE(result_str);
+        }
+        object_free(result);
+        free(result);
         ast_node_free(&program->node);
         parser_deinit(&parser);
     }
