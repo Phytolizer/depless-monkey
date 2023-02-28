@@ -162,13 +162,14 @@ static bool is_truthy(struct object* obj) {
     }
 }
 
-static struct object* eval_statement(struct ast_statement* statement);
+static struct object* eval_statement(struct ast_statement* statement, struct environment* env);
 
-static struct object* eval_block_statement(struct ast_block_statement* block) {
+static struct object*
+eval_block_statement(struct ast_block_statement* block, struct environment* env) {
     struct object* result = NULL;
     for (size_t i = 0; i < block->statements.len; i++) {
         object_free(result);
-        result = eval_statement(block->statements.ptr[i]);
+        result = eval_statement(block->statements.ptr[i], env);
         if (result != NULL and
             (result->type == OBJECT_RETURN_VALUE or result->type == OBJECT_ERROR)) {
             return result;
@@ -177,26 +178,38 @@ static struct object* eval_block_statement(struct ast_block_statement* block) {
     return result;
 }
 
-static struct object* eval_expression(struct ast_expression* expression);
+static struct object* eval_expression(struct ast_expression* expression, struct environment* env);
 
-static struct object* eval_if_expression(struct ast_if_expression* expression) {
-    struct object* condition = eval_expression(expression->condition);
+static struct object*
+eval_if_expression(struct ast_if_expression* expression, struct environment* env) {
+    struct object* condition = eval_expression(expression->condition, env);
     if (is_error(condition)) return condition;
 
     if (is_truthy(condition)) {
         object_free(condition);
-        return eval_block_statement(expression->consequence);
+        return eval_block_statement(expression->consequence, env);
     } else {
         object_free(condition);
         if (expression->alternative != NULL) {
-            return eval_block_statement(expression->alternative);
+            return eval_block_statement(expression->alternative, env);
         } else {
             return object_null_init_base();
         }
     }
 }
 
-static struct object* eval_expression(struct ast_expression* expression) {
+static struct object* eval_identifier(struct ast_identifier* identifier, struct environment* env) {
+    struct object* val = environment_get(env, identifier->value);
+    if (val == NULL) {
+        return object_error_init_base(
+            string_printf("identifier not found: " STRING_FMT, STRING_ARG(identifier->value))
+        );
+    } else {
+        return object_dup(val);
+    }
+}
+
+static struct object* eval_expression(struct ast_expression* expression, struct environment* env) {
     switch (expression->type) {
         case AST_EXPRESSION_INTEGER_LITERAL:
             return object_int64_init_base(((struct ast_integer_literal*)expression)->value);
@@ -204,16 +217,16 @@ static struct object* eval_expression(struct ast_expression* expression) {
             return object_boolean_init_base(((struct ast_boolean*)expression)->value);
         case AST_EXPRESSION_PREFIX: {
             struct ast_prefix_expression* exp = (struct ast_prefix_expression*)expression;
-            struct object* right = eval_expression(exp->right);
+            struct object* right = eval_expression(exp->right, env);
             if (is_error(right)) return right;
 
             return eval_prefix_expression(exp->op, right);
         }
         case AST_EXPRESSION_INFIX: {
             struct ast_infix_expression* exp = (struct ast_infix_expression*)expression;
-            struct object* left = eval_expression(exp->left);
+            struct object* left = eval_expression(exp->left, env);
             if (is_error(left)) return left;
-            struct object* right = eval_expression(exp->right);
+            struct object* right = eval_expression(exp->right, env);
             if (is_error(right)) {
                 object_free(left);
                 return right;
@@ -222,25 +235,34 @@ static struct object* eval_expression(struct ast_expression* expression) {
             return eval_infix_expression(exp->op, left, right);
         }
         case AST_EXPRESSION_IF:
-            return eval_if_expression((struct ast_if_expression*)expression);
+            return eval_if_expression((struct ast_if_expression*)expression, env);
+        case AST_EXPRESSION_IDENTIFIER:
+            return eval_identifier((struct ast_identifier*)expression, env);
         default:
             // [TODO] eval_expression
             return object_null_init_base();
     }
 }
 
-static struct object* eval_statement(struct ast_statement* statement) {
+static struct object* eval_statement(struct ast_statement* statement, struct environment* env) {
     switch (statement->type) {
         case AST_STATEMENT_EXPRESSION:
-            return eval_expression(((struct ast_expression_statement*)statement)->expression);
+            return eval_expression(((struct ast_expression_statement*)statement)->expression, env);
         case AST_STATEMENT_BLOCK:
-            return eval_block_statement((struct ast_block_statement*)statement);
+            return eval_block_statement((struct ast_block_statement*)statement, env);
         case AST_STATEMENT_RETURN: {
             struct object* val =
-                eval_expression(((struct ast_return_statement*)statement)->return_value);
+                eval_expression(((struct ast_return_statement*)statement)->return_value, env);
             if (is_error(val)) return val;
 
             return object_return_value_init_base(val);
+        }
+        case AST_STATEMENT_LET: {
+            struct ast_let_statement* let = (struct ast_let_statement*)statement;
+            struct object* val = eval_expression(let->value, env);
+            if (is_error(val)) return val;
+            environment_set(env, string_dup(let->name->value), val);
+            return object_null_init_base();
         }
         default:
             // [TODO] eval_statement
@@ -248,12 +270,12 @@ static struct object* eval_statement(struct ast_statement* statement) {
     }
 }
 
-static struct object* eval_program(struct ast_program* program) {
+static struct object* eval_program(struct ast_program* program, struct environment* env) {
     struct object* result = NULL;
 
     for (size_t i = 0; i < program->statements.len; i++) {
         object_free(result);
-        result = eval_statement(program->statements.ptr[i]);
+        result = eval_statement(program->statements.ptr[i], env);
         if (result) {
             switch (result->type) {
                 case OBJECT_RETURN_VALUE:
@@ -269,13 +291,13 @@ static struct object* eval_program(struct ast_program* program) {
     return result;
 }
 
-struct object* eval(struct ast_node* node) {
+struct object* eval(struct ast_node* node, struct environment* env) {
     switch (node->type) {
         case AST_NODE_EXPRESSION:
-            return eval_expression((struct ast_expression*)node);
+            return eval_expression((struct ast_expression*)node, env);
         case AST_NODE_STATEMENT:
-            return eval_statement((struct ast_statement*)node);
+            return eval_statement((struct ast_statement*)node, env);
         case AST_NODE_PROGRAM:
-            return eval_program((struct ast_program*)node);
+            return eval_program((struct ast_program*)node, env);
     }
 }

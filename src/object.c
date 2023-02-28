@@ -25,12 +25,14 @@ struct string object_type_string(enum object_type type) {
 struct object object_init(
     enum object_type type,
     object_inspect_callback_t* inspect_callback,
-    object_free_callback_t* free_callback
+    object_free_callback_t* free_callback,
+    object_dup_callback_t* dup_callback
 ) {
     struct object object = {
         .type = type,
         .inspect_callback = inspect_callback,
         .free_callback = free_callback,
+        .dup_callback = dup_callback,
     };
     return object;
 }
@@ -45,16 +47,25 @@ void object_free(struct object* object) {
     free(object);
 }
 
+struct object* object_dup(const struct object* object) {
+    if (object == NULL) return NULL;
+    return object->dup_callback(object);
+}
+
 static struct string int64_inspect(const struct object* obj) {
     const struct object_int64* self = (const struct object_int64*)obj;
     return string_printf("%" PRId64, self->value);
 }
 
 static void int64_free(MONKEY_UNUSED struct object* obj) {}
+static struct object* int64_dup(const struct object* obj) {
+    const struct object_int64* self = (const struct object_int64*)obj;
+    return object_int64_init_base(self->value);
+}
 
 struct object_int64* object_int64_init(int64_t value) {
     struct object_int64* self = malloc(sizeof(*self));
-    self->object = object_init(OBJECT_INTEGER, int64_inspect, int64_free);
+    self->object = object_init(OBJECT_INTEGER, int64_inspect, int64_free, int64_dup);
     self->value = value;
     return self;
 }
@@ -66,9 +77,14 @@ static struct string boolean_inspect(const struct object* obj) {
 
 static void boolean_free(MONKEY_UNUSED struct object* obj) {}
 
+static struct object* boolean_dup(const struct object* obj) {
+    const struct object_boolean* self = (const struct object_boolean*)obj;
+    return object_boolean_init_base(self->value);
+}
+
 struct object_boolean* object_boolean_init(bool value) {
     struct object_boolean* self = malloc(sizeof(*self));
-    self->object = object_init(OBJECT_BOOLEAN, boolean_inspect, boolean_free);
+    self->object = object_init(OBJECT_BOOLEAN, boolean_inspect, boolean_free, boolean_dup);
     self->value = value;
     return self;
 }
@@ -79,9 +95,13 @@ static struct string null_inspect(MONKEY_UNUSED const struct object* obj) {
 
 static void null_free(MONKEY_UNUSED struct object* obj) {}
 
+static struct object* null_dup(MONKEY_UNUSED const struct object* obj) {
+    return object_null_init_base();
+}
+
 struct object_null* object_null_init(void) {
     struct object_null* self = malloc(sizeof(*self));
-    self->object = object_init(OBJECT_NULL, null_inspect, null_free);
+    self->object = object_init(OBJECT_NULL, null_inspect, null_free, null_dup);
     return self;
 }
 
@@ -95,9 +115,15 @@ static void return_value_free(struct object* obj) {
     object_free(self->value);
 }
 
+static struct object* return_value_dup(const struct object* obj) {
+    const struct object_return_value* self = (const struct object_return_value*)obj;
+    return object_return_value_init_base(object_dup(self->value));
+}
+
 struct object_return_value* object_return_value_init(struct object* value) {
     struct object_return_value* self = malloc(sizeof(*self));
-    self->object = object_init(OBJECT_RETURN_VALUE, return_value_inspect, return_value_free);
+    self->object =
+        object_init(OBJECT_RETURN_VALUE, return_value_inspect, return_value_free, return_value_dup);
     self->value = value;
     return self;
 }
@@ -121,9 +147,14 @@ static void error_free(struct object* obj) {
     STRING_FREE(self->message);
 }
 
+static struct object* error_dup(const struct object* obj) {
+    const struct object_error* self = (const struct object_error*)obj;
+    return object_error_init_base(self->message);
+}
+
 struct object_error* object_error_init(struct string message) {
     struct object_error* self = malloc(sizeof(*self));
-    self->object = object_init(OBJECT_ERROR, error_inspect, error_free);
+    self->object = object_init(OBJECT_ERROR, error_inspect, error_free, error_dup);
     self->message = message;
     return self;
 }

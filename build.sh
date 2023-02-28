@@ -9,6 +9,7 @@ cd "test"
 (clang -Wall -Wextra -Werror -Wmissing-prototypes -Wno-unused-function -ggdb3 -fsanitize=address,undefined,integer -fno-sanitize-recover=all -Iinclude -I../include -c parser.c -o parser.o)
 cd "../src"
 (clang -Wall -Wextra -Werror -Wmissing-prototypes -Wno-unused-function -ggdb3 -fsanitize=address,undefined,integer -fno-sanitize-recover=all -I../include -c ast.c -o ast.o)
+(clang -Wall -Wextra -Werror -Wmissing-prototypes -Wno-unused-function -ggdb3 -fsanitize=address,undefined,integer -fno-sanitize-recover=all -I../include -c environment.c -o environment.o)
 (clang -Wall -Wextra -Werror -Wmissing-prototypes -Wno-unused-function -ggdb3 -fsanitize=address,undefined,integer -fno-sanitize-recover=all -I../include -c evaluator.c -o evaluator.o)
 (clang -Wall -Wextra -Werror -Wmissing-prototypes -Wno-unused-function -ggdb3 -fsanitize=address,undefined,integer -fno-sanitize-recover=all -I../include -c lexer.c -o lexer.o)
 (clang -Wall -Wextra -Werror -Wmissing-prototypes -Wno-unused-function -ggdb3 -fsanitize=address,undefined,integer -fno-sanitize-recover=all -I../include -c object.c -o object.o)
@@ -17,7 +18,7 @@ cd "../src"
 (clang -Wall -Wextra -Werror -Wmissing-prototypes -Wno-unused-function -ggdb3 -fsanitize=address,undefined,integer -fno-sanitize-recover=all -I../include -c repl.c -o repl.o)
 (clang -Wall -Wextra -Werror -Wmissing-prototypes -Wno-unused-function -ggdb3 -fsanitize=address,undefined,integer -fno-sanitize-recover=all -I../include -c string.c -o string.o)
 (clang -Wall -Wextra -Werror -Wmissing-prototypes -Wno-unused-function -ggdb3 -fsanitize=address,undefined,integer -fno-sanitize-recover=all -I../include -c token.c -o token.o)
-(ar rcs libmonkey.a ast.o evaluator.o lexer.o object.o parseint.o parser.o repl.o string.o token.o)
+(ar rcs libmonkey.a ast.o environment.o evaluator.o lexer.o object.o parseint.o parser.o repl.o string.o token.o)
 cd "../test"
 (clang -fsanitize=address,undefined,integer -fno-sanitize-recover=all ast.o evaluator.o lexer.o main.o parser.o ../src/libmonkey.a -o monkey-test)
 cd "../app"

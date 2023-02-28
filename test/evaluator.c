@@ -21,8 +21,11 @@ static struct object* test_eval(struct string input) {
     struct parser p;
     parser_init(&p, &l);
     struct ast_program* program = parse_program(&p);
+    struct environment env;
+    environment_init(&env);
 
-    struct object* result = eval(&program->node);
+    struct object* result = eval(&program->node, &env);
+    environment_free(env);
     ast_node_free(&program->node);
     return result;
 }
@@ -321,6 +324,7 @@ SUITE_FUNC(state, evaluator) {
            "  return 1;\n"
            "}\n"),
          S("unknown operator: BOOLEAN + BOOLEAN")},
+        {S("foobar"), S("identifier not found: foobar")},
     };
     for (size_t i = 0; i < sizeof(error_handling_tests) / sizeof(*error_handling_tests); i++) {
         RUN_TEST(
@@ -332,6 +336,28 @@ SUITE_FUNC(state, evaluator) {
             ),
             error_handling_tests[i].input,
             error_handling_tests[i].expected_message
+        );
+    }
+
+    struct {
+        struct string input;
+        int64_t expected;
+    } let_statement_tests[] = {
+        {S("let a = 5; a;"), 5},
+        {S("let a = 5 * 5; a;"), 25},
+        {S("let a = 5; let b = a; b;"), 5},
+        {S("let a = 5; let b = a; let c = a + b + 5; c;"), 15},
+    };
+    for (size_t i = 0; i < sizeof(let_statement_tests) / sizeof(*let_statement_tests); i++) {
+        RUN_TEST(
+            state,
+            integer_expression,
+            string_printf(
+                "let statement (\"" STRING_FMT "\")",
+                STRING_ARG(let_statement_tests[i].input)
+            ),
+            let_statement_tests[i].input,
+            let_statement_tests[i].expected
         );
     }
 }

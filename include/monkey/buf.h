@@ -13,14 +13,14 @@
         bool is_ref; \
     }
 
-#define BUF_REF(p, size) \
-    { .ptr = (p), .len = (size), .cap = (size), .is_ref = true }
+#define BUF_REF(T, p, size) \
+    (T) { .ptr = (p), .len = (size), .cap = (size), .is_ref = true }
 
 #define BUF_ARRAY(T, arr) \
     (T) { .ptr = (arr), .len = sizeof(arr) / sizeof(*(arr)), .is_ref = true }
 
-#define BUF_OWNER(p, size) \
-    { .ptr = (p), .len = (size), .cap = (size), .is_ref = false }
+#define BUF_OWNER(T, p, size) \
+    (T) { .ptr = (p), .len = (size), .cap = (size), .is_ref = false }
 
 #define BUF_PUSH(buf, val) \
     do { \

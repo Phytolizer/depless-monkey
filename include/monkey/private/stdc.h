@@ -11,4 +11,14 @@
 
 #define MONKEY_UNUSED MONKEY_C23([[maybe_unused]]) MONKEY_NOT_C23(__attribute__((unused)))
 
+#ifdef __has_feature
+#if __has_feature(undefined_behavior_sanitizer)
+#define ALLOW_UINT_OVERFLOW __attribute__((no_sanitize("unsigned-integer-overflow")))
+#endif
+#endif
+
+#ifndef ALLOW_UINT_OVERFLOW
+#define ALLOW_UINT_OVERFLOW
+#endif
+
 #endif  // MONKEY_PRIVATE_STDC_H_
