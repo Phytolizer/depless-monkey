@@ -8,3 +8,4 @@ LDFLAGS += $(ASANFLAGS)
 !cc = |> ^j^ clang $(CFLAGS) -c %f -o %o |> %B.o
 !ar = |> ar rcs %o %f |>
 !ld = |> clang $(LDFLAGS) %f -o %o |>
+.gitignore

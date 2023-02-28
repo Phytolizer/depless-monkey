@@ -1,4 +1,6 @@
 include_rules
-CFLAGS += -Iinclude -I../include
+&testinc = include
+&incdir = ../include
+CFLAGS += -I&(testinc) -I&(incdir)
 : foreach *.c |> !cc |>
 : *.o ../src/libmonkey.a |> !ld |> monkey-test
