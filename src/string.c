@@ -33,6 +33,8 @@ struct string string_dup(struct string s) {
 }
 
 void string_append(struct string* buf, struct string arg) {
+    if (arg.length == 0) return;
+
     size_t old_cap = buf->capacity;
     while (buf->length + arg.length > buf->capacity) {
         buf->capacity = buf->capacity * 2 + 1;
