@@ -132,6 +132,15 @@ SUITE_FUNC(state, evaluator) {
         {S("1 != 1"), false},
         {S("1 == 2"), false},
         {S("1 != 2"), true},
+        {S("true == true"), true},
+        {S("false == false"), true},
+        {S("true == false"), false},
+        {S("true != false"), true},
+        {S("false != true"), true},
+        {S("(1 < 2) == true"), true},
+        {S("(1 < 2) == false"), false},
+        {S("(1 > 2) == true"), false},
+        {S("(1 > 2) == false"), true},
     };
     for (size_t i = 0; i < sizeof(boolean_expression_tests) / sizeof(*boolean_expression_tests);
          i++) {
