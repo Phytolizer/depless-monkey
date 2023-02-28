@@ -128,19 +128,32 @@ static bool is_truthy(struct object* obj) {
     }
 }
 
+static struct object* eval_statement(struct ast_statement* statement);
+
+static struct object* eval_block_statement(struct ast_block_statement* block) {
+    struct object* result = NULL;
+    for (size_t i = 0; i < block->statements.len; i++) {
+        object_free(result);
+        result = eval_statement(block->statements.ptr[i]);
+        if (result != NULL and result->type == OBJECT_RETURN_VALUE) {
+            return result;
+        }
+    }
+    return result;
+}
+
 static struct object* eval_expression(struct ast_expression* expression);
-static struct object* eval_statements(struct ast_statement_buf statements);
 
 static struct object* eval_if_expression(struct ast_if_expression* expression) {
     struct object* condition = eval_expression(expression->condition);
     if (condition == NULL) return object_null_init_base();
     if (is_truthy(condition)) {
         object_free(condition);
-        return eval_statements(expression->consequence->statements);
+        return eval_block_statement(expression->consequence);
     } else {
         object_free(condition);
         if (expression->alternative != NULL) {
-            return eval_statements(expression->alternative->statements);
+            return eval_block_statement(expression->alternative);
         } else {
             return object_null_init_base();
         }
@@ -177,7 +190,7 @@ static struct object* eval_statement(struct ast_statement* statement) {
         case AST_STATEMENT_EXPRESSION:
             return eval_expression(((struct ast_expression_statement*)statement)->expression);
         case AST_STATEMENT_BLOCK:
-            return eval_statements(((struct ast_block_statement*)statement)->statements);
+            return eval_block_statement((struct ast_block_statement*)statement);
         case AST_STATEMENT_RETURN: {
             struct object* val =
                 eval_expression(((struct ast_return_statement*)statement)->return_value);
@@ -189,12 +202,12 @@ static struct object* eval_statement(struct ast_statement* statement) {
     }
 }
 
-static struct object* eval_statements(struct ast_statement_buf statements) {
+static struct object* eval_program(struct ast_program* program) {
     struct object* result = NULL;
 
-    for (size_t i = 0; i < statements.len; i++) {
+    for (size_t i = 0; i < program->statements.len; i++) {
         object_free(result);
-        result = eval_statement(statements.ptr[i]);
+        result = eval_statement(program->statements.ptr[i]);
         if (result and result->type == OBJECT_RETURN_VALUE) {
             return object_return_value_unwrap(result);
         }
@@ -210,6 +223,6 @@ struct object* eval(MONKEY_UNUSED struct ast_node* node) {
         case AST_NODE_STATEMENT:
             return eval_statement((struct ast_statement*)node);
         case AST_NODE_PROGRAM:
-            return eval_statements(((struct ast_program*)node)->statements);
+            return eval_program((struct ast_program*)node);
     }
 }
