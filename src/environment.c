@@ -32,6 +32,12 @@ find_bucket(struct environment_entry_buf entries, struct string name) {
 void environment_init(struct environment* env) {
     env->entries = (struct environment_entry_buf){0};
     env->count = 0;
+    env->outer = NULL;
+}
+
+void environment_init_enclosed(struct environment* env, struct environment* outer) {
+    environment_init(env);
+    env->outer = outer;
 }
 
 void environment_free(struct environment env) {
@@ -74,12 +80,16 @@ void environment_set(struct environment* env, struct string name, struct object*
 }
 
 struct object* environment_get(struct environment* env, struct string name) {
-    if (env->count == 0) {
+    if (env->count > 0) {
+        struct environment_entry* bucket = find_bucket(env->entries, name);
+        if (bucket->name.length > 0) {
+            return bucket->value;
+        }
+    }
+
+    if (env->outer != NULL) {
+        return environment_get(env->outer, name);
+    } else {
         return NULL;
     }
-    struct environment_entry* bucket = find_bucket(env->entries, name);
-    if (bucket->name.length == 0) {
-        return NULL;
-    }
-    return bucket->value;
 }

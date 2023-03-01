@@ -410,4 +410,29 @@ SUITE_FUNC(state, evaluator) {
     }
 
     RUN_TEST0(state, function_object, S("function object"));
+
+    struct {
+        struct string input;
+        int64_t expected;
+    } function_application_tests[] = {
+        {S("let identity = fn(x) { x; }; identity(5);"), 5},
+        {S("let identity = fn(x) { return x; }; identity(5);"), 5},
+        {S("let double = fn(x) { x * 2; }; double(5);"), 10},
+        {S("let add = fn(x, y) { x + y; }; add(5, 5);"), 10},
+        {S("let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));"), 20},
+        {S("fn(x) { x; }(5)"), 5},
+    };
+    for (size_t i = 0; i < sizeof(function_application_tests) / sizeof(*function_application_tests);
+         i++) {
+        RUN_TEST(
+            state,
+            integer_expression,
+            string_printf(
+                "function application (\"" STRING_FMT "\")",
+                STRING_ARG(function_application_tests[i].input)
+            ),
+            function_application_tests[i].input,
+            function_application_tests[i].expected
+        );
+    }
 }

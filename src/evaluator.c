@@ -2,7 +2,10 @@
 
 #include <iso646.h>
 
+#include "monkey/buf.h"
 #include "monkey/private/stdc.h"
+
+BUF_T(struct object*, function_argument);
 
 static bool objects_equal(struct object* left, struct object* right) {
     bool result;
@@ -209,6 +212,65 @@ static struct object* eval_identifier(struct ast_identifier* identifier, struct 
     }
 }
 
+static struct function_argument_buf
+eval_expressions(struct ast_call_argument_buf exps, struct environment* env) {
+    struct function_argument_buf result = {0};
+    for (size_t i = 0; i < exps.len; i++) {
+        struct object* evaluated = eval_expression(exps.ptr[i], env);
+        if (is_error(evaluated)) {
+            for (size_t j = 0; j < i; j++) {
+                object_free(result.ptr[j]);
+            }
+            BUF_FREE(result);
+            result = (struct function_argument_buf){0};
+            BUF_PUSH(&result, evaluated);
+            return result;
+        }
+        BUF_PUSH(&result, evaluated);
+    }
+    return result;
+}
+
+static struct environment*
+extend_function_env(struct object_function* fn, struct function_argument_buf args) {
+    struct environment* env = malloc(sizeof(*env));
+    environment_init_enclosed(env, fn->env);
+
+    for (size_t i = 0; i < fn->parameters.len; i++) {
+        struct string param_name = string_dup(fn->parameters.ptr[i]->value);
+        struct object* arg = object_dup(args.ptr[i]);
+        environment_set(env, param_name, arg);
+    }
+
+    return env;
+}
+
+static struct object* unwrap_return_value(struct object* obj) {
+    if (obj != NULL and obj->type == OBJECT_RETURN_VALUE) {
+        struct object* inner = ((struct object_return_value*)obj)->value;
+        ((struct object_return_value*)obj)->value = NULL;
+        object_free(obj);
+        return inner;
+    } else {
+        return obj;
+    }
+}
+
+static struct object* apply_function(struct object* fn, struct function_argument_buf args) {
+    if (fn->type != OBJECT_FUNCTION) {
+        return object_error_init_base(
+            string_printf("not a function: " STRING_FMT, STRING_ARG(object_type_string(fn->type)))
+        );
+    }
+
+    auto function = (struct object_function*)fn;
+    struct environment* extended_env = extend_function_env(function, args);
+    struct object* evaluated = eval_statement(&function->body->statement, extended_env);
+    environment_free(*extended_env);
+    free(extended_env);
+    return unwrap_return_value(evaluated);
+}
+
 static struct object* eval_expression(struct ast_expression* expression, struct environment* env) {
     switch (expression->type) {
         case AST_EXPRESSION_INTEGER_LITERAL:
@@ -250,6 +312,24 @@ static struct object* eval_expression(struct ast_expression* expression, struct 
             }
             auto body = (struct ast_block_statement*)ast_statement_dup(&func->body->statement);
             return object_function_init_base(params, body, env);
+        }
+        case AST_EXPRESSION_CALL: {
+            auto call = (struct ast_call_expression*)expression;
+            struct object* function = eval_expression(call->function, env);
+            if (is_error(function)) return function;
+            struct function_argument_buf args = eval_expressions(call->arguments, env);
+            if (args.len == 1 and is_error(args.ptr[0])) {
+                object_free(function);
+                return args.ptr[0];
+            }
+
+            struct object* result = apply_function(function, args);
+            object_free(function);
+            for (size_t i = 0; i < args.len; i++) {
+                object_free(args.ptr[i]);
+            }
+            BUF_FREE(args);
+            return result;
         }
         default:
             // [TODO] eval_expression
