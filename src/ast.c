@@ -10,13 +10,15 @@ struct ast_node ast_node_init(
     enum ast_node_type type,
     ast_node_token_literal_callback_t* token_literal_callback,
     ast_node_string_callback_t* string_callback,
-    ast_node_free_callback_t* free_callback
+    ast_node_free_callback_t* free_callback,
+    ast_node_dup_callback_t* dup_callback
 ) {
     struct ast_node result = {
         .type = type,
         .token_literal_callback = token_literal_callback,
         .string_callback = string_callback,
         .free_callback = free_callback,
+        .dup_callback = dup_callback,
     };
     return result;
 }
@@ -31,6 +33,10 @@ struct string ast_node_string(const struct ast_node* node) {
 
 void ast_node_free(struct ast_node* node) {
     return node->free_callback(node);
+}
+
+struct ast_node* ast_node_dup(const struct ast_node* node) {
+    return node->dup_callback(node);
 }
 
 struct string ast_statement_type_string(enum ast_statement_type type) {
@@ -48,14 +54,16 @@ struct ast_statement ast_statement_init(
     enum ast_statement_type type,
     ast_node_token_literal_callback_t* token_literal_callback,
     ast_node_string_callback_t* string_callback,
-    ast_node_free_callback_t* free_callback
+    ast_node_free_callback_t* free_callback,
+    ast_node_dup_callback_t* dup_callback
 ) {
     struct ast_statement result = {
         .node = ast_node_init(
             AST_NODE_STATEMENT,
             token_literal_callback,
             string_callback,
-            free_callback
+            free_callback,
+            dup_callback
         ),
         .type = type,
     };
@@ -75,18 +83,24 @@ void ast_statement_free(struct ast_statement* statement) {
     ast_node_free(&statement->node);
 }
 
+struct ast_statement* ast_statement_dup(const struct ast_statement* statement) {
+    return (struct ast_statement*)ast_node_dup(&statement->node);
+}
+
 struct ast_expression ast_expression_init(
     enum ast_expression_type type,
     ast_node_token_literal_callback_t* token_literal_callback,
     ast_node_string_callback_t* string_callback,
-    ast_node_free_callback_t* free_callback
+    ast_node_free_callback_t* free_callback,
+    ast_node_dup_callback_t* dup_callback
 ) {
     struct ast_expression result = {
         .node = ast_node_init(
             AST_NODE_EXPRESSION,
             token_literal_callback,
             string_callback,
-            free_callback
+            free_callback,
+            dup_callback
         ),
         .type = type,
     };
@@ -104,6 +118,10 @@ struct string ast_expression_string(const struct ast_expression* expression) {
 void ast_expression_free(struct ast_expression* expression) {
     if (expression == NULL) return;
     ast_node_free(&expression->node);
+}
+
+struct ast_expression* ast_expression_dup(const struct ast_expression* expression) {
+    return (struct ast_expression*)ast_node_dup(&expression->node);
 }
 
 static struct string program_token_literal(const struct ast_node* node) {
@@ -136,10 +154,25 @@ static void program_free(struct ast_node* node) {
     free(self);
 }
 
+static struct ast_node* program_dup(const struct ast_node* node) {
+    const struct ast_program* self = (const struct ast_program*)node;
+    struct ast_statement_buf statements = {0};
+    for (size_t i = 0; i < self->statements.len; i++) {
+        struct ast_statement* stmt = ast_statement_dup(self->statements.ptr[i]);
+        BUF_PUSH(&statements, stmt);
+    }
+    return (struct ast_node*)ast_program_init(statements);
+}
+
 struct ast_program* ast_program_init(struct ast_statement_buf statements) {
     struct ast_program* self = malloc(sizeof(*self));
-    self->node =
-        ast_node_init(AST_NODE_PROGRAM, program_token_literal, program_string, program_free);
+    self->node = ast_node_init(
+        AST_NODE_PROGRAM,
+        program_token_literal,
+        program_string,
+        program_free,
+        program_dup
+    );
     self->statements = statements;
     return self;
 }
@@ -176,6 +209,18 @@ static void let_statement_free(struct ast_node* node) {
     }
 }
 
+static struct ast_node* let_statement_dup(const struct ast_node* node) {
+    const struct ast_let_statement* self = (const struct ast_let_statement*)node;
+    struct token token = token_dup(self->token);
+    struct ast_identifier* name =
+        (struct ast_identifier*)ast_expression_dup(&self->name->expression);
+    struct ast_expression* value = NULL;
+    if (self->value != NULL) {
+        value = ast_expression_dup(self->value);
+    }
+    return (struct ast_node*)ast_let_statement_init(token, name, value);
+}
+
 struct ast_let_statement* ast_let_statement_init(
     struct token token,
     struct ast_identifier* name,
@@ -186,7 +231,8 @@ struct ast_let_statement* ast_let_statement_init(
         AST_STATEMENT_LET,
         let_statement_token_literal,
         let_statement_string,
-        let_statement_free
+        let_statement_free,
+        let_statement_dup
     );
     self->token = token;
     self->name = name;
@@ -211,6 +257,16 @@ static struct string return_statement_string(const struct ast_node* node) {
     return buf;
 }
 
+static struct ast_node* return_statement_dup(const struct ast_node* node) {
+    const struct ast_return_statement* self = (const struct ast_return_statement*)node;
+    struct token token = token_dup(self->token);
+    struct ast_expression* return_value = NULL;
+    if (self->return_value != NULL) {
+        return_value = ast_expression_dup(self->return_value);
+    }
+    return (struct ast_node*)ast_return_statement_init(token, return_value);
+}
+
 static void return_statement_free(struct ast_node* node) {
     struct ast_return_statement* self = DOWNCAST(struct ast_return_statement, node);
     STRING_FREE(self->token.literal);
@@ -227,7 +283,8 @@ ast_return_statement_init(struct token token, struct ast_expression* return_valu
         AST_STATEMENT_RETURN,
         return_statement_token_literal,
         return_statement_string,
-        return_statement_free
+        return_statement_free,
+        return_statement_dup
     );
     self->token = token;
     self->return_value = return_value;
@@ -268,6 +325,16 @@ static void expression_statement_free(struct ast_node* node) {
     }
 }
 
+static struct ast_node* expression_statement_dup(const struct ast_node* node) {
+    const struct ast_expression_statement* self = (const struct ast_expression_statement*)node;
+    struct token token = token_dup(self->token);
+    struct ast_expression* expression = NULL;
+    if (self->expression != NULL) {
+        expression = ast_expression_dup(self->expression);
+    }
+    return (struct ast_node*)ast_expression_statement_init(token, expression);
+}
+
 struct ast_expression_statement*
 ast_expression_statement_init(struct token token, struct ast_expression* expression) {
     struct ast_expression_statement* self = malloc(sizeof(*self));
@@ -275,7 +342,8 @@ ast_expression_statement_init(struct token token, struct ast_expression* express
         AST_STATEMENT_EXPRESSION,
         expression_statement_token_literal,
         expression_statement_string,
-        expression_statement_free
+        expression_statement_free,
+        expression_statement_dup
     );
     self->token = token;
     self->expression = expression;
@@ -308,6 +376,17 @@ static void block_statement_free(struct ast_node* node) {
     BUF_FREE(self->statements);
 }
 
+static struct ast_node* block_statement_dup(const struct ast_node* node) {
+    const struct ast_block_statement* self = (const struct ast_block_statement*)node;
+    struct token token = token_dup(self->token);
+    struct ast_statement_buf statements = {0};
+    for (size_t i = 0; i < self->statements.len; i++) {
+        struct ast_statement* statement = ast_statement_dup(self->statements.ptr[i]);
+        BUF_PUSH(&statements, statement);
+    }
+    return (struct ast_node*)ast_block_statement_init(token, statements);
+}
+
 struct ast_block_statement*
 ast_block_statement_init(struct token token, struct ast_statement_buf statements) {
     struct ast_block_statement* self = malloc(sizeof(*self));
@@ -315,7 +394,8 @@ ast_block_statement_init(struct token token, struct ast_statement_buf statements
         AST_STATEMENT_BLOCK,
         block_statement_token_literal,
         block_statement_string,
-        block_statement_free
+        block_statement_free,
+        block_statement_dup
     );
     self->token = token;
     self->statements = statements;
@@ -338,13 +418,21 @@ static void identifier_free(struct ast_node* node) {
     STRING_FREE(self->value);
 }
 
+static struct ast_node* identifier_dup(const struct ast_node* node) {
+    const struct ast_identifier* self = (const struct ast_identifier*)node;
+    struct token token = token_dup(self->token);
+    struct string value = string_dup(self->value);
+    return (struct ast_node*)ast_identifier_init(token, value);
+}
+
 struct ast_identifier* ast_identifier_init(struct token token, struct string value) {
     struct ast_identifier* self = malloc(sizeof(*self));
     self->expression = ast_expression_init(
         AST_EXPRESSION_IDENTIFIER,
         identifier_token_literal,
         identifier_string,
-        identifier_free
+        identifier_free,
+        identifier_dup
     );
     self->token = token;
     self->value = value;
@@ -366,13 +454,20 @@ static void integer_literal_free(struct ast_node* node) {
     STRING_FREE(self->token.literal);
 }
 
+static struct ast_node* integer_literal_dup(const struct ast_node* node) {
+    const struct ast_integer_literal* self = (const struct ast_integer_literal*)node;
+    struct token token = token_dup(self->token);
+    return (struct ast_node*)ast_integer_literal_init(token, self->value);
+}
+
 struct ast_integer_literal* ast_integer_literal_init(struct token token, int64_t value) {
     struct ast_integer_literal* self = malloc(sizeof(*self));
     self->expression = ast_expression_init(
         AST_EXPRESSION_INTEGER_LITERAL,
         integer_literal_token_literal,
         integer_literal_string,
-        integer_literal_free
+        integer_literal_free,
+        integer_literal_dup
     );
     self->token = token;
     self->value = value;
@@ -402,6 +497,14 @@ static void prefix_expression_free(struct ast_node* node) {
     free(self->right);
 }
 
+static struct ast_node* prefix_expression_dup(const struct ast_node* node) {
+    const struct ast_prefix_expression* self = (const struct ast_prefix_expression*)node;
+    struct token token = token_dup(self->token);
+    struct string op = string_dup(self->op);
+    struct ast_expression* right = ast_expression_dup(self->right);
+    return (struct ast_node*)ast_prefix_expression_init(token, op, right);
+}
+
 struct ast_prefix_expression*
 ast_prefix_expression_init(struct token token, struct string op, struct ast_expression* right) {
     struct ast_prefix_expression* self = malloc(sizeof(*self));
@@ -409,7 +512,8 @@ ast_prefix_expression_init(struct token token, struct string op, struct ast_expr
         AST_EXPRESSION_PREFIX,
         prefix_expression_token_literal,
         prefix_expression_string,
-        prefix_expression_free
+        prefix_expression_free,
+        prefix_expression_dup
     );
     self->token = token;
     self->op = op;
@@ -446,6 +550,15 @@ static void infix_expression_free(struct ast_node* node) {
     free(self->right);
 }
 
+static struct ast_node* infix_expression_dup(const struct ast_node* node) {
+    const struct ast_infix_expression* self = (const struct ast_infix_expression*)node;
+    struct token token = token_dup(self->token);
+    struct string op = string_dup(self->op);
+    struct ast_expression* left = ast_expression_dup(self->left);
+    struct ast_expression* right = ast_expression_dup(self->right);
+    return (struct ast_node*)ast_infix_expression_init(token, left, op, right);
+}
+
 struct ast_infix_expression* ast_infix_expression_init(
     struct token token,
     struct ast_expression* left,
@@ -457,7 +570,8 @@ struct ast_infix_expression* ast_infix_expression_init(
         AST_EXPRESSION_INFIX,
         infix_expression_token_literal,
         infix_expression_string,
-        infix_expression_free
+        infix_expression_free,
+        infix_expression_dup
     );
     self->token = token;
     self->left = left;
@@ -481,13 +595,20 @@ static void boolean_free(struct ast_node* node) {
     STRING_FREE(self->token.literal);
 }
 
+static struct ast_node* boolean_dup(const struct ast_node* node) {
+    const struct ast_boolean* self = (const struct ast_boolean*)node;
+    struct token token = token_dup(self->token);
+    return (struct ast_node*)ast_boolean_init(token, self->value);
+}
+
 struct ast_boolean* ast_boolean_init(struct token token, bool value) {
     struct ast_boolean* self = malloc(sizeof(*self));
     self->expression = ast_expression_init(
         AST_EXPRESSION_BOOLEAN,
         boolean_token_literal,
         boolean_string,
-        boolean_free
+        boolean_free,
+        boolean_dup
     );
     self->token = token;
     self->value = value;
@@ -531,6 +652,19 @@ static void if_expression_free(struct ast_node* node) {
     }
 }
 
+static struct ast_node* if_expression_dup(const struct ast_node* node) {
+    const struct ast_if_expression* self = (const struct ast_if_expression*)node;
+    struct token token = token_dup(self->token);
+    struct ast_expression* condition = ast_expression_dup(self->condition);
+    struct ast_block_statement* consequence =
+        (struct ast_block_statement*)ast_statement_dup(&self->consequence->statement);
+    struct ast_block_statement* alternative = NULL;
+    if (self->alternative) {
+        alternative = (struct ast_block_statement*)ast_statement_dup(&self->alternative->statement);
+    }
+    return (struct ast_node*)ast_if_expression_init(token, condition, consequence, alternative);
+}
+
 struct ast_if_expression* ast_if_expression_init(
     struct token token,
     struct ast_expression* condition,
@@ -542,7 +676,8 @@ struct ast_if_expression* ast_if_expression_init(
         AST_EXPRESSION_IF,
         if_expression_token_literal,
         if_expression_string,
-        if_expression_free
+        if_expression_free,
+        if_expression_dup
     );
     self->token = token;
     self->condition = condition;
@@ -585,9 +720,23 @@ static void function_literal_free(struct ast_node* node) {
     free(self->body);
 }
 
+static struct ast_node* function_literal_dup(const struct ast_node* node) {
+    const struct ast_function_literal* self = (const struct ast_function_literal*)node;
+    struct token token = token_dup(self->token);
+    struct function_parameter_buf parameters = {0};
+    for (size_t i = 0; i < self->parameters.len; i++) {
+        struct ast_identifier* param =
+            (struct ast_identifier*)ast_expression_dup(&self->parameters.ptr[i]->expression);
+        BUF_PUSH(&parameters, param);
+    }
+    struct ast_block_statement* body =
+        (struct ast_block_statement*)ast_statement_dup(&self->body->statement);
+    return (struct ast_node*)ast_function_literal_init(token, parameters, body);
+}
+
 struct ast_function_literal* ast_function_literal_init(
     struct token token,
-    struct ast_function_parameter_buf parameters,
+    struct function_parameter_buf parameters,
     struct ast_block_statement* body
 ) {
     struct ast_function_literal* self = malloc(sizeof(*self));
@@ -595,7 +744,8 @@ struct ast_function_literal* ast_function_literal_init(
         AST_EXPRESSION_FUNCTION,
         function_literal_token_literal,
         function_literal_string,
-        function_literal_free
+        function_literal_free,
+        function_literal_dup
     );
     self->token = token;
     self->parameters = parameters;
@@ -636,6 +786,18 @@ static void call_expression_free(struct ast_node* node) {
     BUF_FREE(self->arguments);
 }
 
+static struct ast_node* call_expression_dup(const struct ast_node* node) {
+    const struct ast_call_expression* self = (const struct ast_call_expression*)node;
+    struct token token = token_dup(self->token);
+    struct ast_expression* function = ast_expression_dup(self->function);
+    struct ast_call_argument_buf arguments = {0};
+    for (size_t i = 0; i < self->arguments.len; i++) {
+        struct ast_expression* argument = ast_expression_dup(self->arguments.ptr[i]);
+        BUF_PUSH(&arguments, argument);
+    }
+    return (struct ast_node*)ast_call_expression_init(token, function, arguments);
+}
+
 struct ast_call_expression* ast_call_expression_init(
     struct token token,
     struct ast_expression* function,
@@ -646,7 +808,8 @@ struct ast_call_expression* ast_call_expression_init(
         AST_EXPRESSION_CALL,
         call_expression_token_literal,
         call_expression_string,
-        call_expression_free
+        call_expression_free,
+        call_expression_dup
     );
     self->token = token;
     self->function = function;

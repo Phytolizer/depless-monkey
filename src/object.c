@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
+#include "monkey/environment.h"
 #include "monkey/private/stdc.h"
 
 #define DOWNCAST(T, obj) \
@@ -138,17 +139,17 @@ struct object* object_return_value_unwrap(struct object* object) {
 }
 
 static struct string error_inspect(const struct object* obj) {
-    const struct object_error* self = (const struct object_error*)obj;
+    auto self = (const struct object_error*)obj;
     return string_printf("ERROR: " STRING_FMT, STRING_ARG(self->message));
 }
 
 static void error_free(struct object* obj) {
-    struct object_error* self = DOWNCAST(struct object_error, obj);
+    auto self = DOWNCAST(struct object_error, obj);
     STRING_FREE(self->message);
 }
 
 static struct object* error_dup(const struct object* obj) {
-    const struct object_error* self = (const struct object_error*)obj;
+    auto self = (const struct object_error*)obj;
     return object_error_init_base(self->message);
 }
 
@@ -156,5 +157,59 @@ struct object_error* object_error_init(struct string message) {
     struct object_error* self = malloc(sizeof(*self));
     self->object = object_init(OBJECT_ERROR, error_inspect, error_free, error_dup);
     self->message = message;
+    return self;
+}
+
+static struct string function_inspect(const struct object* obj) {
+    auto self = (const struct object_function*)obj;
+    struct string out = string_dup(STRING_REF("fn("));
+    for (size_t i = 0; i < self->parameters.len; i++) {
+        struct string param = ast_expression_string(&self->parameters.ptr[i]->expression);
+        string_append(&out, param);
+        if (i < self->parameters.len - 1) {
+            string_append(&out, STRING_REF(", "));
+        }
+        STRING_FREE(param);
+    }
+    string_append(&out, STRING_REF(") {\n"));
+    struct string body_str = ast_statement_string(&self->body->statement);
+    string_append(&out, body_str);
+    STRING_FREE(body_str);
+    string_append(&out, STRING_REF("\n}"));
+    return out;
+}
+
+static void function_free(struct object* obj) {
+    auto self = DOWNCAST(struct object_function, obj);
+    ast_statement_free(&self->body->statement);
+    free(self->body);
+    for (size_t i = 0; i < self->parameters.len; i++) {
+        ast_expression_free(&self->parameters.ptr[i]->expression);
+        free(self->parameters.ptr[i]);
+    }
+    BUF_FREE(self->parameters);
+}
+
+static struct object* function_dup(const struct object* obj) {
+    auto self = (const struct object_function*)obj;
+    auto body = (struct ast_block_statement*)ast_statement_dup(&self->body->statement);
+    struct function_parameter_buf parameters = {0};
+    for (size_t i = 0; i < self->parameters.len; i++) {
+        auto id = (struct ast_identifier*)ast_expression_dup(&self->parameters.ptr[i]->expression);
+        BUF_PUSH(&parameters, id);
+    }
+    return object_function_init_base(parameters, body, self->env);
+}
+
+extern struct object_function* object_function_init(
+    struct function_parameter_buf parameters,
+    struct ast_block_statement* body,
+    struct environment* env
+) {
+    struct object_function* self = malloc(sizeof(*self));
+    self->object = object_init(OBJECT_FUNCTION, function_inspect, function_free, function_dup);
+    self->parameters = parameters;
+    self->body = body;
+    self->env = env;
     return self;
 }

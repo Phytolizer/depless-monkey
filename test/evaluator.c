@@ -155,6 +155,54 @@ static TEST_FUNC(state, error, struct string input, struct string expected_messa
     PASS();
 }
 
+static TEST_FUNC0(state, function_object) {
+    const struct string input = S("fn(x) { x + 2; };");
+    struct object* evaluated = test_eval(input);
+
+    TEST_ASSERT(
+        state,
+        evaluated and evaluated->type == OBJECT_FUNCTION,
+        CLEANUP(object_free(evaluated)),
+        "object is not function. got=" STRING_FMT,
+        STRING_ARG(show_obj_type(evaluated))
+    );
+
+    struct object_function* function = (struct object_function*)evaluated;
+
+    TEST_ASSERT(
+        state,
+        function->parameters.len == 1,
+        CLEANUP(object_free(evaluated)),
+        "function has wrong parameters. Parameters=%" PRIu64,
+        function->parameters.len
+    );
+
+    struct string param_str = ast_expression_string(&function->parameters.ptr[0]->expression);
+    TEST_ASSERT(
+        state,
+        STRING_EQUAL(param_str, S("x")),
+        CLEANUP(STRING_FREE(param_str); object_free(evaluated)),
+        "parameter is not 'x'. got=\"" STRING_FMT "\"",
+        STRING_ARG(param_str)
+    );
+    STRING_FREE(param_str);
+
+    struct string body_str = ast_statement_string(&function->body->statement);
+    struct string expected_body = S("(x + 2)");
+    TEST_ASSERT(
+        state,
+        STRING_EQUAL(body_str, expected_body),
+        CLEANUP(STRING_FREE(body_str); object_free(evaluated)),
+        "body is not \"" STRING_FMT "\". got=\"" STRING_FMT "\"",
+        STRING_ARG(expected_body),
+        STRING_ARG(body_str)
+    );
+    STRING_FREE(body_str);
+
+    object_free(evaluated);
+    PASS();
+}
+
 SUITE_FUNC(state, evaluator) {
     struct {
         struct string input;
@@ -360,4 +408,6 @@ SUITE_FUNC(state, evaluator) {
             let_statement_tests[i].expected
         );
     }
+
+    RUN_TEST0(state, function_object, S("function object"));
 }

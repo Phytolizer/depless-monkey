@@ -223,8 +223,8 @@ static struct ast_expression* parse_if_expression(struct parser* p) {
     return ast_if_expression_init_base(token, condition, consequence, alternative);
 }
 
-static struct ast_function_parameter_buf parse_function_parameters(struct parser* p) {
-    struct ast_function_parameter_buf parameters = {0};
+static struct function_parameter_buf parse_function_parameters(struct parser* p) {
+    struct function_parameter_buf parameters = {0};
 
     if (p->peek_token.type == TOKEN_RPAREN) {
         next_token(p);
@@ -250,7 +250,7 @@ static struct ast_function_parameter_buf parse_function_parameters(struct parser
             free(parameters.ptr[i]);
         }
         BUF_FREE(parameters);
-        return (struct ast_function_parameter_buf){0};
+        return (struct function_parameter_buf){0};
     }
 
     return parameters;
@@ -264,7 +264,7 @@ static struct ast_expression* parse_function_literal(struct parser* p) {
         return NULL;
     }
 
-    struct ast_function_parameter_buf parameters = parse_function_parameters(p);
+    struct function_parameter_buf parameters = parse_function_parameters(p);
 
     if (!expect_peek(p, TOKEN_LBRACE)) {
         for (size_t i = 0; i < parameters.len; i++) {

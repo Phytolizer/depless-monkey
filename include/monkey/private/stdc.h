@@ -21,4 +21,6 @@
 #define ALLOW_UINT_OVERFLOW
 #endif
 
+#define auto __auto_type
+
 #endif  // MONKEY_PRIVATE_STDC_H_

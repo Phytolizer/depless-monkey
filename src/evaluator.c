@@ -216,14 +216,14 @@ static struct object* eval_expression(struct ast_expression* expression, struct 
         case AST_EXPRESSION_BOOLEAN:
             return object_boolean_init_base(((struct ast_boolean*)expression)->value);
         case AST_EXPRESSION_PREFIX: {
-            struct ast_prefix_expression* exp = (struct ast_prefix_expression*)expression;
+            auto exp = (struct ast_prefix_expression*)expression;
             struct object* right = eval_expression(exp->right, env);
             if (is_error(right)) return right;
 
             return eval_prefix_expression(exp->op, right);
         }
         case AST_EXPRESSION_INFIX: {
-            struct ast_infix_expression* exp = (struct ast_infix_expression*)expression;
+            auto exp = (struct ast_infix_expression*)expression;
             struct object* left = eval_expression(exp->left, env);
             if (is_error(left)) return left;
             struct object* right = eval_expression(exp->right, env);
@@ -238,6 +238,19 @@ static struct object* eval_expression(struct ast_expression* expression, struct 
             return eval_if_expression((struct ast_if_expression*)expression, env);
         case AST_EXPRESSION_IDENTIFIER:
             return eval_identifier((struct ast_identifier*)expression, env);
+        case AST_EXPRESSION_FUNCTION: {
+            auto func = (struct ast_function_literal*)expression;
+            struct function_parameter_buf params = {0};
+            BUF_RESERVE(&params, func->parameters.len);
+            for (size_t i = 0; i < func->parameters.len; i++) {
+                BUF_PUSH(
+                    &params,
+                    (struct ast_identifier*)ast_expression_dup(&func->parameters.ptr[i]->expression)
+                );
+            }
+            auto body = (struct ast_block_statement*)ast_statement_dup(&func->body->statement);
+            return object_function_init_base(params, body, env);
+        }
         default:
             // [TODO] eval_expression
             return object_null_init_base();

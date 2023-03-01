@@ -31,6 +31,14 @@
         (buf)->ptr[(buf)->len++] = (val); \
     } while (false)
 
+#define BUF_RESERVE(buf, size) \
+    do { \
+        if ((buf)->cap < (size)) { \
+            (buf)->cap = (size); \
+            (buf)->ptr = realloc((buf)->ptr, (buf)->cap * sizeof(*(buf)->ptr)); \
+        } \
+    } while (false)
+
 #define BUF_FREE(buf) \
     do { \
         if (!(buf).is_ref) { \

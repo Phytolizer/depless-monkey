@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "monkey/ast.h"
+#include "monkey/buf.h"
 #include "monkey/string.h"
 
 enum object_type {
@@ -85,6 +87,28 @@ struct object_error {
 extern struct object_error* object_error_init(struct string message);
 static inline struct object* object_error_init_base(struct string message) {
     return &object_error_init(message)->object;
+}
+
+struct environment;
+
+struct object_function {
+    struct object object;
+    struct function_parameter_buf parameters;
+    struct ast_block_statement* body;
+    struct environment* env;
+};
+
+extern struct object_function* object_function_init(
+    struct function_parameter_buf parameters,
+    struct ast_block_statement* body,
+    struct environment* env
+);
+static inline struct object* object_function_init_base(
+    struct function_parameter_buf parameters,
+    struct ast_block_statement* body,
+    struct environment* env
+) {
+    return &object_function_init(parameters, body, env)->object;
 }
 
 #endif  // MONKEY_OBJECT_H_

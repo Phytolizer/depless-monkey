@@ -12,6 +12,7 @@ struct ast_node;
 typedef struct string ast_node_token_literal_callback_t(const struct ast_node* node);
 typedef struct string ast_node_string_callback_t(const struct ast_node* node);
 typedef void ast_node_free_callback_t(struct ast_node* node);
+typedef struct ast_node* ast_node_dup_callback_t(const struct ast_node* node);
 
 enum ast_node_type {
 #define X(x) AST_NODE_##x,
@@ -24,18 +25,21 @@ struct ast_node {
     ast_node_token_literal_callback_t* token_literal_callback;
     ast_node_string_callback_t* string_callback;
     ast_node_free_callback_t* free_callback;
+    ast_node_dup_callback_t* dup_callback;
 };
 
 extern struct ast_node ast_node_init(
     enum ast_node_type type,
     ast_node_token_literal_callback_t* token_literal_callback,
     ast_node_string_callback_t* string_callback,
-    ast_node_free_callback_t* free_callback
+    ast_node_free_callback_t* free_callback,
+    ast_node_dup_callback_t* dup_callback
 );
 
 extern struct string ast_node_token_literal(const struct ast_node* node);
 extern struct string ast_node_string(const struct ast_node* node);
 extern void ast_node_free(struct ast_node* node);
+extern struct ast_node* ast_node_dup(const struct ast_node* node);
 
 enum ast_statement_type {
 #define X(x) AST_STATEMENT_##x,
@@ -54,11 +58,13 @@ extern struct ast_statement ast_statement_init(
     enum ast_statement_type type,
     ast_node_token_literal_callback_t* token_literal_callback,
     ast_node_string_callback_t* string_callback,
-    ast_node_free_callback_t* free_callback
+    ast_node_free_callback_t* free_callback,
+    ast_node_dup_callback_t* dup_callback
 );
 extern struct string ast_statement_token_literal(const struct ast_statement* statement);
 extern struct string ast_statement_string(const struct ast_statement* statement);
 extern void ast_statement_free(struct ast_statement* statement);
+extern struct ast_statement* ast_statement_dup(const struct ast_statement* statement);
 
 enum ast_expression_type {
 #define X(x) AST_EXPRESSION_##x,
@@ -77,11 +83,13 @@ extern struct ast_expression ast_expression_init(
     enum ast_expression_type type,
     ast_node_token_literal_callback_t* token_literal_callback,
     ast_node_string_callback_t* string_callback,
-    ast_node_free_callback_t* free_callback
+    ast_node_free_callback_t* free_callback,
+    ast_node_dup_callback_t* dup_callback
 );
 extern struct string ast_expression_token_literal(const struct ast_expression* expression);
 extern struct string ast_expression_string(const struct ast_expression* expression);
 extern void ast_expression_free(struct ast_expression* expression);
+extern struct ast_expression* ast_expression_dup(const struct ast_expression* expression);
 
 BUF_T(struct ast_statement*, ast_statement);
 
@@ -251,23 +259,23 @@ static inline struct ast_expression* ast_if_expression_init_base(
     return &ast_if_expression_init(token, condition, consequence, alternative)->expression;
 }
 
-BUF_T(struct ast_identifier*, ast_function_parameter);
+BUF_T(struct ast_identifier*, function_parameter);
 
 struct ast_function_literal {
     struct ast_expression expression;
     struct token token;
-    struct ast_function_parameter_buf parameters;
+    struct function_parameter_buf parameters;
     struct ast_block_statement* body;
 };
 
 extern struct ast_function_literal* ast_function_literal_init(
     struct token token,
-    struct ast_function_parameter_buf parameters,
+    struct function_parameter_buf parameters,
     struct ast_block_statement* body
 );
 static inline struct ast_expression* ast_function_literal_init_base(
     struct token token,
-    struct ast_function_parameter_buf parameters,
+    struct function_parameter_buf parameters,
     struct ast_block_statement* body
 ) {
     return &ast_function_literal_init(token, parameters, body)->expression;
