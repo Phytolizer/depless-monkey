@@ -435,4 +435,14 @@ SUITE_FUNC(state, evaluator) {
             function_application_tests[i].expected
         );
     }
+    const struct string closure_input = S(
+        "let newAdder = fn(x) {\n"
+        "  fn(y) { x + y };\n"
+        "};\n"
+        "\n"
+        "let addTwo = newAdder(2);\n"
+        "addTwo(2);\n"
+    );
+    // [FIXME] CRASH on this test (uaf in extending function environment)
+    RUN_TEST(state, integer_expression, S("closure"), closure_input, 4);
 }
