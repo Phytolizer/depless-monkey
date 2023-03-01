@@ -440,6 +440,8 @@ SUITE_FUNC(state, evaluator) {
         "  fn(y) { x + y };\n"
         "};\n"
         "\n"
+        // this call to newAdder returns a function
+        // but its parent environment gets freed after the call
         "let addTwo = newAdder(2);\n"
         "addTwo(2);\n"
     );
