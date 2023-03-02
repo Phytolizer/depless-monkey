@@ -44,7 +44,6 @@ void repl_start(FILE* in, FILE* out) {
             STRING_FREE(result_str);
         }
         object_free(result);
-        free(result);
         ast_node_decref(&program->node);
         parser_deinit(&parser);
     }
