@@ -702,7 +702,7 @@ static size_t call_expression_decref(struct ast_node* node) {
 struct ast_call_expression* ast_call_expression_init(
     struct token token,
     struct ast_expression* function,
-    struct ast_call_argument_buf arguments
+    struct ast_expression_buf arguments
 ) {
     struct ast_call_expression* self = malloc(sizeof(*self));
     self->expression = ast_expression_init(
@@ -746,5 +746,53 @@ struct ast_string_literal* ast_string_literal_init(struct token token, struct st
     );
     self->token = token;
     self->value = value;
+    return self;
+}
+
+static struct string array_literal_token_literal(const struct ast_node* node) {
+    auto self = (const struct ast_array_literal*)node;
+    return self->token.literal;
+}
+
+static struct string array_literal_string(const struct ast_node* node) {
+    auto self = (const struct ast_array_literal*)node;
+    struct string buf = string_dup(STRING_REF("["));
+    for (size_t i = 0; i < self->elements.len; i++) {
+        if (i > 0) {
+            string_append(&buf, STRING_REF(", "));
+        }
+        struct string element_str = ast_expression_string(self->elements.ptr[i]);
+        string_append(&buf, element_str);
+        STRING_FREE(element_str);
+    }
+    string_append(&buf, STRING_REF("]"));
+    return buf;
+}
+
+static size_t array_literal_decref(struct ast_node* node) {
+    node->rc--;
+    if (node->rc > 0) return node->rc;
+    auto self = (struct ast_array_literal*)node;
+    STRING_FREE(self->token.literal);
+    for (size_t i = 0; i < self->elements.len; i++) {
+        if (ast_expression_decref(self->elements.ptr[i]) == 0) {
+            free(self->elements.ptr[i]);
+        }
+    }
+    BUF_FREE(self->elements);
+    return 0;
+}
+
+struct ast_array_literal*
+ast_array_literal_init(struct token token, struct ast_expression_buf elements) {
+    struct ast_array_literal* self = malloc(sizeof(*self));
+    self->expression = ast_expression_init(
+        AST_EXPRESSION_ARRAY,
+        array_literal_token_literal,
+        array_literal_string,
+        array_literal_decref
+    );
+    self->token = token;
+    self->elements = elements;
     return self;
 }

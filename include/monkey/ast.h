@@ -275,24 +275,24 @@ static inline struct ast_expression* ast_function_literal_init_base(
     return &ast_function_literal_init(token, parameters, body)->expression;
 }
 
-BUF_T(struct ast_expression*, ast_call_argument);
+BUF_T(struct ast_expression*, ast_expression);
 
 struct ast_call_expression {
     struct ast_expression expression;
     struct token token;
     struct ast_expression* function;
-    struct ast_call_argument_buf arguments;
+    struct ast_expression_buf arguments;
 };
 
 extern struct ast_call_expression* ast_call_expression_init(
     struct token token,
     struct ast_expression* function,
-    struct ast_call_argument_buf arguments
+    struct ast_expression_buf arguments
 );
 static inline struct ast_expression* ast_call_expression_init_base(
     struct token token,
     struct ast_expression* function,
-    struct ast_call_argument_buf arguments
+    struct ast_expression_buf arguments
 ) {
     return &ast_call_expression_init(token, function, arguments)->expression;
 }
@@ -307,6 +307,19 @@ extern struct ast_string_literal* ast_string_literal_init(struct token token, st
 static inline struct ast_expression*
 ast_string_literal_init_base(struct token token, struct string value) {
     return &ast_string_literal_init(token, value)->expression;
+}
+
+struct ast_array_literal {
+    struct ast_expression expression;
+    struct token token;
+    struct ast_expression_buf elements;
+};
+
+extern struct ast_array_literal*
+ast_array_literal_init(struct token token, struct ast_expression_buf elements);
+static inline struct ast_expression*
+ast_array_literal_init_base(struct token token, struct ast_expression_buf elements) {
+    return &ast_array_literal_init(token, elements)->expression;
 }
 
 #endif  // MONKEY_AST_H_

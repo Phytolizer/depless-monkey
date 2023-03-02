@@ -289,7 +289,7 @@ static struct object* eval_identifier(struct ast_identifier* identifier, struct 
 }
 
 static struct function_argument_buf
-eval_expressions(struct evaluator* ev, struct ast_call_argument_buf exps, struct environment* env) {
+eval_expressions(struct evaluator* ev, struct ast_expression_buf exps, struct environment* env) {
     struct function_argument_buf result = {0};
     for (size_t i = 0; i < exps.len; i++) {
         struct object* evaluated = eval_expression(ev, exps.ptr[i], env);

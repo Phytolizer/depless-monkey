@@ -281,46 +281,52 @@ static struct ast_expression* parse_function_literal(struct parser* p) {
     return ast_function_literal_init_base(token, parameters, body);
 }
 
-static struct ast_call_argument_buf parse_call_arguments(struct parser* p) {
-    struct ast_call_argument_buf arguments = {0};
+static struct ast_expression_buf parse_expression_list(struct parser* p, enum token_type end) {
+    struct ast_expression_buf list = {0};
 
-    if (p->peek_token.type == TOKEN_RPAREN) {
+    if (p->peek_token.type == end) {
         next_token(p);
-        return arguments;
+        return list;
     }
 
     next_token(p);
-    BUF_PUSH(&arguments, parse_expression(p, PREC_LOWEST));
+    BUF_PUSH(&list, parse_expression(p, PREC_LOWEST));
 
     while (p->peek_token.type == TOKEN_COMMA) {
         next_token(p);
         next_token(p);
 
-        BUF_PUSH(&arguments, parse_expression(p, PREC_LOWEST));
+        BUF_PUSH(&list, parse_expression(p, PREC_LOWEST));
     }
 
-    if (!expect_peek(p, TOKEN_RPAREN)) {
-        for (size_t i = 0; i < arguments.len; i++) {
-            ast_expression_decref(arguments.ptr[i]);
-            free(arguments.ptr[i]);
+    if (!expect_peek(p, end)) {
+        for (size_t i = 0; i < list.len; i++) {
+            ast_expression_decref(list.ptr[i]);
+            free(list.ptr[i]);
         }
-        BUF_FREE(arguments);
-        return (struct ast_call_argument_buf){0};
+        BUF_FREE(list);
+        return (struct ast_expression_buf){0};
     }
 
-    return arguments;
+    return list;
 }
 
 static struct ast_expression*
 parse_call_expression(struct parser* p, struct ast_expression* function) {
     struct token token = take_cur(p);
-    struct ast_call_argument_buf arguments = parse_call_arguments(p);
+    struct ast_expression_buf arguments = parse_expression_list(p, TOKEN_RPAREN);
     return ast_call_expression_init_base(token, function, arguments);
 }
 
 static struct ast_expression* parse_string_literal(struct parser* p) {
     struct token token = take_cur(p);
     return ast_string_literal_init_base(token, string_dup(token.literal));
+}
+
+static struct ast_expression* parse_array_literal(struct parser* p) {
+    struct token token = take_cur(p);
+    struct ast_expression_buf elements = parse_expression_list(p, TOKEN_RBRACKET);
+    return ast_array_literal_init_base(token, elements);
 }
 
 static prefix_parse_fn_t* prefix_parse_fn(enum token_type type) {
@@ -343,6 +349,8 @@ static prefix_parse_fn_t* prefix_parse_fn(enum token_type type) {
             return &parse_function_literal;
         case TOKEN_STRING:
             return &parse_string_literal;
+        case TOKEN_LBRACKET:
+            return &parse_array_literal;
         default:
             return NULL;
     }
