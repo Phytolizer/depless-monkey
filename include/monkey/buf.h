@@ -39,6 +39,13 @@
         } \
     } while (false)
 
+#define BUF_APPEND(buf, other) \
+    do { \
+        BUF_RESERVE(buf, (buf)->len + (other).len); \
+        memcpy((buf)->ptr + (buf)->len, (other).ptr, (other).len * sizeof(*(buf)->ptr)); \
+        (buf)->len += (other).len; \
+    } while (false)
+
 #define BUF_FREE(buf) \
     do { \
         if (!(buf).is_ref) { \

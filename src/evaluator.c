@@ -22,6 +22,8 @@ static struct object* builtin_len(struct object_buf args) {
     switch (arg->type) {
         case OBJECT_STRING:
             return object_int64_init_base(((struct object_string*)arg)->value.length);
+        case OBJECT_ARRAY:
+            return object_int64_init_base(((struct object_array*)arg)->elements.len);
         default:
             return object_error_init_base(string_printf(
                 "argument to `len` not supported, got " STRING_FMT,
@@ -30,11 +32,107 @@ static struct object* builtin_len(struct object_buf args) {
     }
 }
 
+static struct object* builtin_first(struct object_buf args) {
+    if (args.len != 1) {
+        return object_error_init_base(
+            string_printf("wrong number of arguments. got=%zu, want=1", args.len)
+        );
+    }
+    if (args.ptr[0]->type != OBJECT_ARRAY) {
+        return object_error_init_base(string_printf(
+            "argument to `first` must be ARRAY, got " STRING_FMT,
+            STRING_ARG(object_type_string(args.ptr[0]->type))
+        ));
+    }
+
+    struct object_array* arr = (struct object_array*)args.ptr[0];
+    if (arr->elements.len > 0) {
+        return object_dup(arr->elements.ptr[0]);
+    } else {
+        return object_null_init_base();
+    }
+}
+
+static struct object* builtin_last(struct object_buf args) {
+    if (args.len != 1) {
+        return object_error_init_base(
+            string_printf("wrong number of arguments. got=%zu, want=1", args.len)
+        );
+    }
+    if (args.ptr[0]->type != OBJECT_ARRAY) {
+        return object_error_init_base(string_printf(
+            "argument to `last` must be ARRAY, got " STRING_FMT,
+            STRING_ARG(object_type_string(args.ptr[0]->type))
+        ));
+    }
+
+    struct object_array* arr = (struct object_array*)args.ptr[0];
+    if (arr->elements.len > 0) {
+        return object_dup(arr->elements.ptr[arr->elements.len - 1]);
+    } else {
+        return object_null_init_base();
+    }
+}
+
+static struct object* builtin_rest(struct object_buf args) {
+    if (args.len != 1) {
+        return object_error_init_base(
+            string_printf("wrong number of arguments. got=%zu, want=1", args.len)
+        );
+    }
+    if (args.ptr[0]->type != OBJECT_ARRAY) {
+        return object_error_init_base(string_printf(
+            "argument to `rest` must be ARRAY, got " STRING_FMT,
+            STRING_ARG(object_type_string(args.ptr[0]->type))
+        ));
+    }
+
+    struct object_array* arr = (struct object_array*)args.ptr[0];
+    if (arr->elements.len > 0) {
+        struct object_buf elements = {0};
+        BUF_APPEND(
+            &elements,
+            BUF_REF(struct object_buf, arr->elements.ptr + 1, arr->elements.len - 1)
+        );
+        return object_array_init_base(elements);
+    } else {
+        return object_null_init_base();
+    }
+}
+
+static struct object* builtin_push(struct object_buf args) {
+    if (args.len != 2) {
+        return object_error_init_base(
+            string_printf("wrong number of arguments. got=%zu, want=2", args.len)
+        );
+    }
+    if (args.ptr[0]->type != OBJECT_ARRAY) {
+        return object_error_init_base(string_printf(
+            "argument to `push` must be ARRAY, got " STRING_FMT,
+            STRING_ARG(object_type_string(args.ptr[0]->type))
+        ));
+    }
+
+    struct object_array* arr = (struct object_array*)args.ptr[0];
+    size_t len = arr->elements.len;
+    struct object_buf elements = {0};
+    BUF_RESERVE(&elements, len + 1);
+    for (size_t i = 0; i < len; i += 1) {
+        BUF_PUSH(&elements, object_dup(arr->elements.ptr[i]));
+    }
+    BUF_PUSH(&elements, object_dup(args.ptr[1]));
+    return object_array_init_base(elements);
+}
+
 static struct evaluator evaluator_new(struct environment* env) {
     struct evaluator evaluator = {
         .envs = {0},
     };
     environment_set(env, STRING_REF("len"), object_builtin_init_base(&builtin_len));
+    environment_set(env, STRING_REF("first"), object_builtin_init_base(&builtin_first));
+    environment_set(env, STRING_REF("last"), object_builtin_init_base(&builtin_last));
+    environment_set(env, STRING_REF("rest"), object_builtin_init_base(&builtin_rest));
+    environment_set(env, STRING_REF("push"), object_builtin_init_base(&builtin_push));
     return evaluator;
 }
 
