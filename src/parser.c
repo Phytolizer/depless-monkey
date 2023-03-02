@@ -318,6 +318,11 @@ parse_call_expression(struct parser* p, struct ast_expression* function) {
     return ast_call_expression_init_base(token, function, arguments);
 }
 
+static struct ast_expression* parse_string_literal(struct parser* p) {
+    struct token token = take_cur(p);
+    return ast_string_literal_init_base(token, string_dup(token.literal));
+}
+
 static prefix_parse_fn_t* prefix_parse_fn(enum token_type type) {
     switch (type) {
         case TOKEN_IDENT:
@@ -336,6 +341,8 @@ static prefix_parse_fn_t* prefix_parse_fn(enum token_type type) {
             return &parse_if_expression;
         case TOKEN_FUNCTION:
             return &parse_function_literal;
+        case TOKEN_STRING:
+            return &parse_string_literal;
         default:
             return NULL;
     }

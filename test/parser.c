@@ -1049,6 +1049,61 @@ static TEST_FUNC0(state, call_expression) {
     PASS();
 }
 
+static TEST_FUNC0(state, string_literal_expression) {
+    const struct string input = S("\"hello world\"");
+    struct lexer l;
+    lexer_init(&l, input);
+    struct parser p;
+    parser_init(&p, &l);
+    struct ast_program* program = parse_program(&p);
+    RUN_SUBTEST(
+        state,
+        check_parser_errors,
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
+        &p
+    );
+
+    TEST_ASSERT(
+        state,
+        program->statements.len == 1,
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
+        "program has not enough statements. got=%zu",
+        program->statements.len
+    );
+
+    TEST_ASSERT(
+        state,
+        program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
+        "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
+        STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
+    );
+
+    struct ast_expression_statement* stmt =
+        (struct ast_expression_statement*)program->statements.ptr[0];
+    TEST_ASSERT(
+        state,
+        stmt->expression->type == AST_EXPRESSION_STRING,
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
+        "stmt.expression is not ast_string_literal*. got=" STRING_FMT,
+        STRING_ARG(ast_expression_type_string(stmt->expression->type))
+    );
+
+    struct ast_string_literal* literal = (struct ast_string_literal*)stmt->expression;
+    TEST_ASSERT(
+        state,
+        STRING_EQUAL(literal->value, S("hello world")),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
+        "literal.value not %s. got=" STRING_FMT,
+        "hello world",
+        STRING_ARG(literal->value)
+    );
+
+    ast_node_decref(&program->node);
+    parser_deinit(&p);
+    PASS();
+}
+
 SUITE_FUNC(state, parser) {
     struct {
         struct string input;
@@ -1243,4 +1298,5 @@ SUITE_FUNC(state, parser) {
     }
 
     RUN_TEST0(state, call_expression, S("call expression"));
+    RUN_TEST0(state, string_literal_expression, S("string literal expression"));
 }

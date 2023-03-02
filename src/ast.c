@@ -716,3 +716,35 @@ struct ast_call_expression* ast_call_expression_init(
     self->arguments = arguments;
     return self;
 }
+
+static struct string string_literal_token_literal(const struct ast_node* node) {
+    auto self = (const struct ast_string_literal*)node;
+    return self->token.literal;
+}
+
+static struct string string_literal_string(const struct ast_node* node) {
+    auto self = (const struct ast_string_literal*)node;
+    return self->token.literal;
+}
+
+static size_t string_literal_decref(struct ast_node* node) {
+    node->rc--;
+    if (node->rc > 0) return node->rc;
+    auto self = (struct ast_string_literal*)node;
+    STRING_FREE(self->token.literal);
+    STRING_FREE(self->value);
+    return 0;
+}
+
+struct ast_string_literal* ast_string_literal_init(struct token token, struct string value) {
+    struct ast_string_literal* self = malloc(sizeof(*self));
+    self->expression = ast_expression_init(
+        AST_EXPRESSION_STRING,
+        string_literal_token_literal,
+        string_literal_string,
+        string_literal_decref
+    );
+    self->token = token;
+    self->value = value;
+    return self;
+}
