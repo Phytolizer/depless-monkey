@@ -238,3 +238,23 @@ struct object_string* object_string_init(struct string value) {
     self->value = value;
     return self;
 }
+
+static struct string builtin_inspect(MONKEY_UNUSED const struct object* obj) {
+    return STRING_REF("builtin function");
+}
+
+static void builtin_free(MONKEY_UNUSED struct object* obj) {
+    // nothing to do
+}
+
+static struct object* builtin_dup(const struct object* obj) {
+    auto self = (const struct object_builtin*)obj;
+    return object_builtin_init_base(self->fn);
+}
+
+struct object_builtin* object_builtin_init(builtin_function_callback_t* fn) {
+    struct object_builtin* self = malloc(sizeof(*self));
+    self->object = object_init(OBJECT_BUILTIN, builtin_inspect, builtin_free, builtin_dup);
+    self->fn = fn;
+    return self;
+}

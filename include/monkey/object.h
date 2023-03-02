@@ -121,4 +121,17 @@ static inline struct object* object_string_init_base(struct string value) {
     return &object_string_init(value)->object;
 }
 
+BUF_T(struct object*, function_argument);
+typedef struct object* builtin_function_callback_t(struct function_argument_buf args);
+
+struct object_builtin {
+    struct object object;
+    builtin_function_callback_t* fn;
+};
+
+extern struct object_builtin* object_builtin_init(builtin_function_callback_t* fn);
+static inline struct object* object_builtin_init_base(builtin_function_callback_t* fn) {
+    return &object_builtin_init(fn)->object;
+}
+
 #endif  // MONKEY_OBJECT_H_

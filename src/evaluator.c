@@ -5,12 +5,46 @@
 #include "monkey/buf.h"
 #include "monkey/private/stdc.h"
 
-BUF_T(struct object*, function_argument);
 BUF_T(struct environment*, environment);
 
 struct evaluator {
     struct environment_buf envs;
 };
+
+static struct object* builtin_len(struct function_argument_buf args) {
+    if (args.len != 1) {
+        return object_error_init_base(
+            string_printf("wrong number of arguments. got=%zu, want=1", args.len)
+        );
+    }
+
+    struct object* arg = args.ptr[0];
+    switch (arg->type) {
+        case OBJECT_STRING:
+            return object_int64_init_base(((struct object_string*)arg)->value.length);
+        default:
+            return object_error_init_base(string_printf(
+                "argument to `len` not supported, got " STRING_FMT,
+                STRING_ARG(object_type_string(arg->type))
+            ));
+    }
+}
+
+static struct evaluator evaluator_new(struct environment* env) {
+    struct evaluator evaluator = {
+        .envs = {0},
+    };
+    environment_set(env, STRING_REF("len"), object_builtin_init_base(&builtin_len));
+    return evaluator;
+}
+
+static void evaluator_free(struct evaluator evaluator) {
+    for (size_t i = 0; i < evaluator.envs.len; i += 1) {
+        environment_free(*evaluator.envs.ptr[i]);
+        free(evaluator.envs.ptr[i]);
+    }
+    BUF_FREE(evaluator.envs);
+}
 
 static bool objects_equal(struct object* left, struct object* right) {
     bool result;
@@ -123,11 +157,8 @@ static struct object* eval_string_infix_expression(
     struct object_string* right
 ) {
     if (STRING_EQUAL(op, STRING_REF("+"))) {
-        struct string result = string_printf(
-            STRING_FMT STRING_FMT,
-            STRING_ARG(left->value),
-            STRING_ARG(right->value)
-        );
+        struct string result =
+            string_printf(STRING_FMT STRING_FMT, STRING_ARG(left->value), STRING_ARG(right->value));
         object_free(&left->object);
         object_free(&right->object);
         return object_string_init_base(result);
@@ -248,12 +279,12 @@ static struct object* eval_if_expression(
 
 static struct object* eval_identifier(struct ast_identifier* identifier, struct environment* env) {
     struct object* val = environment_get(env, identifier->value);
-    if (val == NULL) {
+    if (val != NULL) {
+        return object_dup(val);
+    } else {
         return object_error_init_base(
             string_printf("identifier not found: " STRING_FMT, STRING_ARG(identifier->value))
         );
-    } else {
-        return object_dup(val);
     }
 }
 
@@ -303,22 +334,29 @@ static struct object* unwrap_return_value(struct object* obj) {
 
 static struct object*
 apply_function(struct evaluator* ev, struct object* fn, struct function_argument_buf args) {
-    if (fn->type != OBJECT_FUNCTION) {
-        return object_error_init_base(
-            string_printf("not a function: " STRING_FMT, STRING_ARG(object_type_string(fn->type)))
-        );
+    switch (fn->type) {
+        case OBJECT_FUNCTION: {
+            auto function = (struct object_function*)fn;
+            struct environment* extended_env = extend_function_env(function, args);
+            struct object* evaluated = eval_statement(ev, &function->body->statement, extended_env);
+            if (extended_env->outer->rc == 1) {
+                environment_free(*extended_env);
+                free(extended_env);
+            } else {
+                BUF_PUSH(&ev->envs, extended_env);
+            }
+            return unwrap_return_value(evaluated);
+        }
+        case OBJECT_BUILTIN: {
+            auto builtin = (struct object_builtin*)fn;
+            return builtin->fn(args);
+        }
+        default:
+            return object_error_init_base(string_printf(
+                "not a function: " STRING_FMT,
+                STRING_ARG(object_type_string(fn->type))
+            ));
     }
-
-    auto function = (struct object_function*)fn;
-    struct environment* extended_env = extend_function_env(function, args);
-    struct object* evaluated = eval_statement(ev, &function->body->statement, extended_env);
-    if (extended_env->outer->rc == 1) {
-        environment_free(*extended_env);
-        free(extended_env);
-    } else {
-        BUF_PUSH(&ev->envs, extended_env);
-    }
-    return unwrap_return_value(evaluated);
 }
 
 static struct object*
@@ -447,7 +485,7 @@ eval_program(struct evaluator* ev, struct ast_program* program, struct environme
 }
 
 struct object* eval(struct ast_node* node, struct environment* env) {
-    struct evaluator ev = {0};
+    struct evaluator ev = evaluator_new(env);
     struct object* result;
     switch (node->type) {
         case AST_NODE_EXPRESSION:
@@ -460,10 +498,6 @@ struct object* eval(struct ast_node* node, struct environment* env) {
             result = eval_program(&ev, (struct ast_program*)node, env);
             break;
     }
-    for (size_t i = 0; i < ev.envs.len; i++) {
-        environment_free(*ev.envs.ptr[i]);
-        free(ev.envs.ptr[i]);
-    }
-    BUF_FREE(ev.envs);
+    evaluator_free(ev);
     return result;
 }

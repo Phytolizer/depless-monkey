@@ -112,6 +112,31 @@ static TEST_FUNC(state, boolean_expression, struct string input, bool expected) 
     PASS();
 }
 
+static SUBTEST_FUNC(state, error, struct object* evaluated, struct string expected_message) {
+    struct string type = show_obj_type(evaluated);
+    TEST_ASSERT(
+        state,
+        evaluated and evaluated->type == OBJECT_ERROR,
+        CLEANUP(STRING_FREE(type)),
+        "object is not error. got=" STRING_FMT,
+        STRING_ARG(type)
+    );
+    STRING_FREE(type);
+
+    struct object_error* error = (struct object_error*)evaluated;
+
+    TEST_ASSERT(
+        state,
+        STRING_EQUAL(error->message, expected_message),
+        NO_CLEANUP,
+        "wrong error message. expected=\"" STRING_FMT "\", got=\"" STRING_FMT "\"",
+        STRING_ARG(expected_message),
+        STRING_ARG(error->message)
+    );
+
+    PASS();
+}
+
 static TEST_FUNC(state, object, struct string input, struct test_value expected) {
     struct object* evaluated = test_eval(input);
     switch (expected.type) {
@@ -136,6 +161,9 @@ static TEST_FUNC(state, object, struct string input, struct test_value expected)
                 expected.boolean
             );
             break;
+        case TEST_VALUE_ERROR:
+            RUN_SUBTEST(state, error, CLEANUP(object_free(evaluated)), evaluated, expected.string);
+            break;
         case TEST_VALUE_STRING:
             // [TODO] implement string object checking
             FAIL(state, CLEANUP(object_free(evaluated)), "string object checking not implemented");
@@ -147,26 +175,7 @@ static TEST_FUNC(state, object, struct string input, struct test_value expected)
 static TEST_FUNC(state, error, struct string input, struct string expected_message) {
     struct object* evaluated = test_eval(input);
 
-    struct string type = show_obj_type(evaluated);
-    TEST_ASSERT(
-        state,
-        evaluated and evaluated->type == OBJECT_ERROR,
-        CLEANUP(STRING_FREE(type); object_free(evaluated)),
-        "object is not error. got=" STRING_FMT,
-        STRING_ARG(type)
-    );
-    STRING_FREE(type);
-
-    struct object_error* error = (struct object_error*)evaluated;
-
-    TEST_ASSERT(
-        state,
-        STRING_EQUAL(error->message, expected_message),
-        CLEANUP(object_free(evaluated)),
-        "wrong error message. expected=\"" STRING_FMT "\", got=\"" STRING_FMT "\"",
-        STRING_ARG(expected_message),
-        STRING_ARG(error->message)
-    );
+    RUN_SUBTEST(state, error, CLEANUP(object_free(evaluated)), evaluated, expected_message);
 
     object_free(evaluated);
     PASS();
@@ -506,4 +515,28 @@ SUITE_FUNC(state, evaluator) {
         S("\"hello\" + \" \" + \"world\""),
         S("hello world")
     );
+
+    struct {
+        struct string input;
+        struct test_value expected;
+    } builtin_function_tests[] = {
+        {S("len(\"\")"), test_value_int64(0)},
+        {S("len(\"four\")"), test_value_int64(4)},
+        {S("len(\"hello world\")"), test_value_int64(11)},
+        {S("len(1)"), test_value_error(S("argument to `len` not supported, got INTEGER"))},
+        {S("len(\"one\", \"two\")"),
+         test_value_error(S("wrong number of arguments. got=2, want=1"))},
+    };
+    for (size_t i = 0; i < sizeof(builtin_function_tests) / sizeof(*builtin_function_tests); i++) {
+        RUN_TEST(
+            state,
+            object,
+            string_printf(
+                "builtin function (\"" STRING_FMT "\")",
+                STRING_ARG(builtin_function_tests[i].input)
+            ),
+            builtin_function_tests[i].input,
+            builtin_function_tests[i].expected
+        );
+    }
 }

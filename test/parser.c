@@ -125,6 +125,9 @@ static SUBTEST_FUNC(
         case TEST_VALUE_NULL:
             FAIL(state, NO_CLEANUP, "null AST checking not implemented");
             break;
+        case TEST_VALUE_ERROR:
+            FAIL(state, NO_CLEANUP, "error AST checking not implemented");
+            break;
         case TEST_VALUE_INT64:
             RUN_SUBTEST(state, integer_literal, NO_CLEANUP, exp, expected.int64);
             break;
