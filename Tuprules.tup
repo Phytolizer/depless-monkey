@@ -1,6 +1,6 @@
 ifeq (@(DEBUG),y)
 CFLAGS += -Wall -Wextra -Werror -Wmissing-prototypes -Wno-unused-function
-CFLAGS += -ggdb3
+CFLAGS += -gdwarf-2
 endif
 
 ifeq (@(OPTIMIZE),y)
@@ -8,9 +8,11 @@ CFLAGS += -O3 -flto -march=native -mtune=native -fno-omit-frame-pointer
 endif
 
 ifeq (@(DEBUG),y)
+ifndef NOASAN
 ASANFLAGS = -fsanitize=address,undefined,integer -fno-sanitize-recover=all
 CFLAGS += $(ASANFLAGS)
 LDFLAGS += $(ASANFLAGS)
+endif
 endif
 
 ifeq (@(OPTIMIZE),y)
