@@ -18,26 +18,37 @@ extern struct string object_type_string(enum object_type type);
 
 struct object;
 
+struct object_hash_key {
+    enum object_type type;
+    uint64_t value;
+};
+
+extern bool object_hash_key_equal(struct object_hash_key a, struct object_hash_key b);
+
 typedef struct string object_inspect_callback_t(const struct object* object);
 typedef void object_free_callback_t(struct object* object);
 typedef struct object* object_dup_callback_t(const struct object* object);
+typedef struct object_hash_key object_hash_key_callback_t(const struct object* object);
 
 struct object {
     enum object_type type;
     object_inspect_callback_t* inspect_callback;
     object_free_callback_t* free_callback;
     object_dup_callback_t* dup_callback;
+    object_hash_key_callback_t* hash_key_callback;
 };
 
 extern struct object object_init(
     enum object_type type,
     object_inspect_callback_t* inspect_callback,
     object_free_callback_t* free_callback,
-    object_dup_callback_t* dup_callback
+    object_dup_callback_t* dup_callback,
+    object_hash_key_callback_t* hash_key_callback
 );
 extern struct string object_inspect(const struct object* object);
 extern void object_free(struct object* object);
 extern struct object* object_dup(const struct object* object);
+extern struct object_hash_key object_hash_key(const struct object* object);
 
 struct object_int64 {
     struct object object;

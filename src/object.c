@@ -1,6 +1,7 @@
 #include "monkey/object.h"
 
 #include <inttypes.h>
+#include <iso646.h>
 #include <stdlib.h>
 
 #include "monkey/environment.h"
@@ -11,6 +12,10 @@
         if (obj == NULL) return; \
         (T*)obj; \
     })
+
+bool object_hash_key_equal(struct object_hash_key a, struct object_hash_key b) {
+    return a.type == b.type and a.value == b.value;
+}
 
 struct string object_type_string(enum object_type type) {
     switch (type) {
@@ -27,13 +32,15 @@ struct object object_init(
     enum object_type type,
     object_inspect_callback_t* inspect_callback,
     object_free_callback_t* free_callback,
-    object_dup_callback_t* dup_callback
+    object_dup_callback_t* dup_callback,
+    object_hash_key_callback_t* hash_key_callback
 ) {
     struct object object = {
         .type = type,
         .inspect_callback = inspect_callback,
         .free_callback = free_callback,
         .dup_callback = dup_callback,
+        .hash_key_callback = hash_key_callback,
     };
     return object;
 }
@@ -53,6 +60,14 @@ struct object* object_dup(const struct object* object) {
     return object->dup_callback(object);
 }
 
+extern struct object_hash_key object_hash_key(const struct object* obj) {
+    if (obj->hash_key_callback == NULL) {
+        abort();
+    }
+
+    return obj->hash_key_callback(obj);
+}
+
 static struct string int64_inspect(const struct object* obj) {
     const struct object_int64* self = (const struct object_int64*)obj;
     return string_printf("%" PRId64, self->value);
@@ -64,9 +79,18 @@ static struct object* int64_dup(const struct object* obj) {
     return object_int64_init_base(self->value);
 }
 
+static struct object_hash_key int64_hash_key(const struct object* obj) {
+    auto self = (const struct object_int64*)obj;
+    return (struct object_hash_key){
+        .type = obj->type,
+        .value = (uint64_t)self->value,
+    };
+}
+
 struct object_int64* object_int64_init(int64_t value) {
     struct object_int64* self = malloc(sizeof(*self));
-    self->object = object_init(OBJECT_INTEGER, int64_inspect, int64_free, int64_dup);
+    self->object =
+        object_init(OBJECT_INTEGER, int64_inspect, int64_free, int64_dup, int64_hash_key);
     self->value = value;
     return self;
 }
@@ -83,9 +107,18 @@ static struct object* boolean_dup(const struct object* obj) {
     return object_boolean_init_base(self->value);
 }
 
+static struct object_hash_key boolean_hash_key(const struct object* obj) {
+    auto self = (const struct object_boolean*)obj;
+    return (struct object_hash_key){
+        .type = obj->type,
+        .value = self->value,
+    };
+}
+
 struct object_boolean* object_boolean_init(bool value) {
     struct object_boolean* self = malloc(sizeof(*self));
-    self->object = object_init(OBJECT_BOOLEAN, boolean_inspect, boolean_free, boolean_dup);
+    self->object =
+        object_init(OBJECT_BOOLEAN, boolean_inspect, boolean_free, boolean_dup, boolean_hash_key);
     self->value = value;
     return self;
 }
@@ -102,7 +135,7 @@ static struct object* null_dup(MONKEY_UNUSED const struct object* obj) {
 
 struct object_null* object_null_init(void) {
     struct object_null* self = malloc(sizeof(*self));
-    self->object = object_init(OBJECT_NULL, null_inspect, null_free, null_dup);
+    self->object = object_init(OBJECT_NULL, null_inspect, null_free, null_dup, NULL);
     return self;
 }
 
@@ -123,8 +156,13 @@ static struct object* return_value_dup(const struct object* obj) {
 
 struct object_return_value* object_return_value_init(struct object* value) {
     struct object_return_value* self = malloc(sizeof(*self));
-    self->object =
-        object_init(OBJECT_RETURN_VALUE, return_value_inspect, return_value_free, return_value_dup);
+    self->object = object_init(
+        OBJECT_RETURN_VALUE,
+        return_value_inspect,
+        return_value_free,
+        return_value_dup,
+        NULL
+    );
     self->value = value;
     return self;
 }
@@ -155,7 +193,7 @@ static struct object* error_dup(const struct object* obj) {
 
 struct object_error* object_error_init(struct string message) {
     struct object_error* self = malloc(sizeof(*self));
-    self->object = object_init(OBJECT_ERROR, error_inspect, error_free, error_dup);
+    self->object = object_init(OBJECT_ERROR, error_inspect, error_free, error_dup, NULL);
     self->message = message;
     return self;
 }
@@ -210,7 +248,8 @@ extern struct object_function* object_function_init(
     struct environment* env
 ) {
     struct object_function* self = malloc(sizeof(*self));
-    self->object = object_init(OBJECT_FUNCTION, function_inspect, function_free, function_dup);
+    self->object =
+        object_init(OBJECT_FUNCTION, function_inspect, function_free, function_dup, NULL);
     self->parameters = parameters;
     self->body = body;
     self->env = env;
@@ -232,9 +271,24 @@ static struct object* o_string_dup(const struct object* obj) {
     return object_string_init_base(self->value);
 }
 
+ALLOW_UINT_OVERFLOW static struct object_hash_key string_hash_key(const struct object* obj) {
+    auto self = (const struct object_string*)obj;
+    // fnv-1a
+    uint64_t hash = UINT64_C(14695981039346656037);
+    for (size_t i = 0; i < self->value.length; i++) {
+        hash ^= self->value.data[i];
+        hash *= UINT64_C(1099511628211);
+    }
+    return (struct object_hash_key){
+        .type = obj->type,
+        .value = hash,
+    };
+}
+
 struct object_string* object_string_init(struct string value) {
     struct object_string* self = malloc(sizeof(*self));
-    self->object = object_init(OBJECT_STRING, string_inspect, string_free, o_string_dup);
+    self->object =
+        object_init(OBJECT_STRING, string_inspect, string_free, o_string_dup, string_hash_key);
     self->value = value;
     return self;
 }
@@ -254,7 +308,7 @@ static struct object* builtin_dup(const struct object* obj) {
 
 struct object_builtin* object_builtin_init(builtin_function_callback_t* fn) {
     struct object_builtin* self = malloc(sizeof(*self));
-    self->object = object_init(OBJECT_BUILTIN, builtin_inspect, builtin_free, builtin_dup);
+    self->object = object_init(OBJECT_BUILTIN, builtin_inspect, builtin_free, builtin_dup, NULL);
     self->fn = fn;
     return self;
 }
@@ -294,7 +348,7 @@ static struct object* array_dup(const struct object* obj) {
 
 struct object_array* object_array_init(struct object_buf elements) {
     struct object_array* self = malloc(sizeof(*self));
-    self->object = object_init(OBJECT_ARRAY, array_inspect, array_free, array_dup);
+    self->object = object_init(OBJECT_ARRAY, array_inspect, array_free, array_dup, NULL);
     self->elements = elements;
     return self;
 }

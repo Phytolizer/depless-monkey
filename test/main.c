@@ -4,6 +4,7 @@
 #include "monkey/test/evaluator.h"
 #include "monkey/test/framework.h"
 #include "monkey/test/lexer.h"
+#include "monkey/test/object.h"
 #include "monkey/test/parser.h"
 
 int main(int argc, char** argv) {
@@ -21,6 +22,7 @@ int main(int argc, char** argv) {
     RUN_SUITE(&state, ast, STRING_REF("ast"));
     RUN_SUITE(&state, evaluator, STRING_REF("evaluator"));
     RUN_SUITE(&state, lexer, STRING_REF("lexer"));
+    RUN_SUITE(&state, object, STRING_REF("object"));
     RUN_SUITE(&state, parser, STRING_REF("parser"));
 
     fprintf(
