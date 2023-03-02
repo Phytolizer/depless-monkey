@@ -26,7 +26,7 @@ static struct object* test_eval(struct string input) {
 
     struct object* result = eval(&program->node, &env);
     environment_free(env);
-    ast_node_free(&program->node);
+    ast_node_decref(&program->node);
     return result;
 }
 

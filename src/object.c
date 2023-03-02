@@ -181,21 +181,24 @@ static struct string function_inspect(const struct object* obj) {
 
 static void function_free(struct object* obj) {
     auto self = DOWNCAST(struct object_function, obj);
-    ast_statement_free(&self->body->statement);
-    free(self->body);
+    if (ast_statement_decref(&self->body->statement) == 0) {
+        free(self->body);
+    }
     for (size_t i = 0; i < self->parameters.len; i++) {
-        ast_expression_free(&self->parameters.ptr[i]->expression);
-        free(self->parameters.ptr[i]);
+        if (ast_expression_decref(&self->parameters.ptr[i]->expression) == 0) {
+            free(self->parameters.ptr[i]);
+        }
     }
     BUF_FREE(self->parameters);
 }
 
 static struct object* function_dup(const struct object* obj) {
     auto self = (const struct object_function*)obj;
-    auto body = (struct ast_block_statement*)ast_statement_dup(&self->body->statement);
+    auto body = (struct ast_block_statement*)ast_node_incref(&self->body->statement.node);
     struct function_parameter_buf parameters = {0};
     for (size_t i = 0; i < self->parameters.len; i++) {
-        auto id = (struct ast_identifier*)ast_expression_dup(&self->parameters.ptr[i]->expression);
+        auto id =
+            (struct ast_identifier*)ast_node_incref(&self->parameters.ptr[i]->expression.node);
         BUF_PUSH(&parameters, id);
     }
     return object_function_init_base(parameters, body, self->env);

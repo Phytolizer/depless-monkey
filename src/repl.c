@@ -32,7 +32,7 @@ void repl_start(FILE* in, FILE* out) {
             for (size_t i = 0; i < parser.errors.len; i++) {
                 fprintf(out, "\t" STRING_FMT "\n", STRING_ARG(parser.errors.ptr[i]));
             }
-            ast_node_free(&program->node);
+            ast_node_decref(&program->node);
             parser_deinit(&parser);
             continue;
         }
@@ -45,7 +45,7 @@ void repl_start(FILE* in, FILE* out) {
         }
         object_free(result);
         free(result);
-        ast_node_free(&program->node);
+        ast_node_decref(&program->node);
         parser_deinit(&parser);
     }
 

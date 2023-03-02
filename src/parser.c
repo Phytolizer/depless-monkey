@@ -156,7 +156,7 @@ static struct ast_expression* parse_grouped_expression(struct parser* p) {
     next_token(p);
     struct ast_expression* exp = parse_expression(p, PREC_LOWEST);
     if (!expect_peek(p, TOKEN_RPAREN)) {
-        ast_expression_free(exp);
+        ast_expression_decref(exp);
         return NULL;
     }
     return exp;
@@ -193,13 +193,13 @@ static struct ast_expression* parse_if_expression(struct parser* p) {
     struct ast_expression* condition = parse_expression(p, PREC_LOWEST);
 
     if (!expect_peek(p, TOKEN_RPAREN)) {
-        ast_expression_free(condition);
+        ast_expression_decref(condition);
         STRING_FREE(token.literal);
         return NULL;
     }
 
     if (!expect_peek(p, TOKEN_LBRACE)) {
-        ast_expression_free(condition);
+        ast_expression_decref(condition);
         STRING_FREE(token.literal);
         return NULL;
     }
@@ -211,8 +211,8 @@ static struct ast_expression* parse_if_expression(struct parser* p) {
         next_token(p);
 
         if (!expect_peek(p, TOKEN_LBRACE)) {
-            ast_expression_free(condition);
-            ast_statement_free(&consequence->statement);
+            ast_expression_decref(condition);
+            ast_statement_decref(&consequence->statement);
             STRING_FREE(token.literal);
             return NULL;
         }
@@ -246,7 +246,7 @@ static struct function_parameter_buf parse_function_parameters(struct parser* p)
 
     if (!expect_peek(p, TOKEN_RPAREN)) {
         for (size_t i = 0; i < parameters.len; i++) {
-            ast_expression_free(&parameters.ptr[i]->expression);
+            ast_expression_decref(&parameters.ptr[i]->expression);
             free(parameters.ptr[i]);
         }
         BUF_FREE(parameters);
@@ -268,7 +268,7 @@ static struct ast_expression* parse_function_literal(struct parser* p) {
 
     if (!expect_peek(p, TOKEN_LBRACE)) {
         for (size_t i = 0; i < parameters.len; i++) {
-            ast_expression_free(&parameters.ptr[i]->expression);
+            ast_expression_decref(&parameters.ptr[i]->expression);
             free(parameters.ptr[i]);
         }
         BUF_FREE(parameters);
@@ -301,7 +301,7 @@ static struct ast_call_argument_buf parse_call_arguments(struct parser* p) {
 
     if (!expect_peek(p, TOKEN_RPAREN)) {
         for (size_t i = 0; i < arguments.len; i++) {
-            ast_expression_free(arguments.ptr[i]);
+            ast_expression_decref(arguments.ptr[i]);
             free(arguments.ptr[i]);
         }
         BUF_FREE(arguments);
@@ -376,7 +376,7 @@ static struct ast_expression* parse_expression(struct parser* p, enum precedence
         next_token(p);
         struct ast_expression* result = infix(p, left_exp);
         if (result == NULL) {
-            ast_expression_free(left_exp);
+            ast_expression_decref(left_exp);
             return NULL;
         }
         left_exp = result;
@@ -398,7 +398,7 @@ static struct ast_statement* parse_let_statement(struct parser* p) {
 
     if (!expect_peek(p, TOKEN_ASSIGN)) {
         STRING_FREE(token.literal);
-        ast_node_free(&name->expression.node);
+        ast_node_decref(&name->expression.node);
         free(name);
         return NULL;
     }

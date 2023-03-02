@@ -229,14 +229,14 @@ static TEST_FUNC(
     RUN_SUBTEST(
         state,
         check_parser_errors,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         &p
     );
 
     TEST_ASSERT(
         state,
         program->statements.len == 1,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program.statements does not contain 1 statements. got=%zu",
         program->statements.len
     );
@@ -245,13 +245,13 @@ static TEST_FUNC(
     RUN_SUBTEST(
         state,
         let_statement,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         stmt,
         expected_identifier,
         expected_value
     );
 
-    ast_node_free(&program->node);
+    ast_node_decref(&program->node);
     parser_deinit(&p);
     PASS();
 }
@@ -266,14 +266,14 @@ static TEST_FUNC(state, return_statements, struct string input, struct test_valu
     RUN_SUBTEST(
         state,
         check_parser_errors,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         &p
     );
 
     TEST_ASSERT(
         state,
         program->statements.len == 1,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program.statements does not contain 1 statements. got=%zu",
         program->statements.len
     );
@@ -281,7 +281,7 @@ static TEST_FUNC(state, return_statements, struct string input, struct test_valu
     TEST_ASSERT(
         state,
         program->statements.ptr[0]->type == AST_STATEMENT_RETURN,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "stmt not ast_return_statement*. got=" STRING_FMT,
         STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
     );
@@ -291,7 +291,7 @@ static TEST_FUNC(state, return_statements, struct string input, struct test_valu
     TEST_ASSERT(
         state,
         STRING_EQUAL(ast_node_token_literal(&return_stmt->statement.node), S("return")),
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "return_stmt.token_literal() not 'return', got \"" STRING_FMT "\"",
         STRING_ARG(ast_node_token_literal(&return_stmt->statement.node))
     );
@@ -299,12 +299,12 @@ static TEST_FUNC(state, return_statements, struct string input, struct test_valu
     RUN_SUBTEST(
         state,
         literal_expression,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         return_stmt->return_value,
         expected_value
     );
 
-    ast_node_free(&program->node);
+    ast_node_decref(&program->node);
     parser_deinit(&p);
     PASS();
 }
@@ -320,14 +320,14 @@ static TEST_FUNC0(state, identifier_expression) {
     RUN_SUBTEST(
         state,
         check_parser_errors,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         &p
     );
 
     TEST_ASSERT(
         state,
         program->statements.len == 1,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program has not enough statements. got=%zu",
         program->statements.len
     );
@@ -335,7 +335,7 @@ static TEST_FUNC0(state, identifier_expression) {
     TEST_ASSERT(
         state,
         program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
         STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
     );
@@ -345,12 +345,12 @@ static TEST_FUNC0(state, identifier_expression) {
     RUN_SUBTEST(
         state,
         identifier,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         stmt->expression,
         S("foobar")
     );
 
-    ast_node_free(&program->node);
+    ast_node_decref(&program->node);
     parser_deinit(&p);
     PASS();
 }
@@ -366,14 +366,14 @@ static TEST_FUNC0(state, integer_literal_expression) {
     RUN_SUBTEST(
         state,
         check_parser_errors,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         &p
     );
 
     TEST_ASSERT(
         state,
         program->statements.len == 1,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program has not enough statements. got=%zu",
         program->statements.len
     );
@@ -381,7 +381,7 @@ static TEST_FUNC0(state, integer_literal_expression) {
     TEST_ASSERT(
         state,
         program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
         STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
     );
@@ -391,12 +391,12 @@ static TEST_FUNC0(state, integer_literal_expression) {
     RUN_SUBTEST(
         state,
         integer_literal,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         stmt->expression,
         5
     );
 
-    ast_node_free(&program->node);
+    ast_node_decref(&program->node);
     parser_deinit(&p);
     PASS();
 }
@@ -410,14 +410,14 @@ static TEST_FUNC(state, boolean_literal_expression, struct string input, bool va
     RUN_SUBTEST(
         state,
         check_parser_errors,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         &p
     );
 
     TEST_ASSERT(
         state,
         program->statements.len == 1,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program has not enough statements. got=%zu",
         program->statements.len
     );
@@ -425,7 +425,7 @@ static TEST_FUNC(state, boolean_literal_expression, struct string input, bool va
     TEST_ASSERT(
         state,
         program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
         STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
     );
@@ -435,12 +435,12 @@ static TEST_FUNC(state, boolean_literal_expression, struct string input, bool va
     RUN_SUBTEST(
         state,
         literal_expression,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         stmt->expression,
         test_value_boolean(value)
     );
 
-    ast_node_free(&program->node);
+    ast_node_decref(&program->node);
     parser_deinit(&p);
     PASS();
 }
@@ -460,14 +460,14 @@ static TEST_FUNC(
     RUN_SUBTEST(
         state,
         check_parser_errors,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         &p
     );
 
     TEST_ASSERT(
         state,
         program->statements.len == 1,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program has not enough statements. got=%zu",
         program->statements.len
     );
@@ -475,7 +475,7 @@ static TEST_FUNC(
     TEST_ASSERT(
         state,
         program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
         STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
     );
@@ -485,7 +485,7 @@ static TEST_FUNC(
     TEST_ASSERT(
         state,
         stmt->expression->type == AST_EXPRESSION_PREFIX,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "stmt.expression is not ast_prefix_expression*. got=" STRING_FMT,
         STRING_ARG(ast_expression_type_string(stmt->expression->type))
     );
@@ -494,7 +494,7 @@ static TEST_FUNC(
     TEST_ASSERT(
         state,
         STRING_EQUAL(exp->op, op),
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "exp.op is not '" STRING_FMT "'. got=" STRING_FMT,
         STRING_ARG(op),
         STRING_ARG(exp->op)
@@ -502,12 +502,12 @@ static TEST_FUNC(
     RUN_SUBTEST(
         state,
         literal_expression,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         exp->right,
         value
     );
 
-    ast_node_free(&program->node);
+    ast_node_decref(&program->node);
     parser_deinit(&p);
     PASS();
 }
@@ -528,14 +528,14 @@ static TEST_FUNC(
     RUN_SUBTEST(
         state,
         check_parser_errors,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         &p
     );
 
     TEST_ASSERT(
         state,
         program->statements.len == 1,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program has not enough statements. got=%zu",
         program->statements.len
     );
@@ -543,7 +543,7 @@ static TEST_FUNC(
     TEST_ASSERT(
         state,
         program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
         STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
     );
@@ -553,14 +553,14 @@ static TEST_FUNC(
     RUN_SUBTEST(
         state,
         infix_expression,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         stmt->expression,
         left_value,
         op,
         right_value
     );
 
-    ast_node_free(&program->node);
+    ast_node_decref(&program->node);
     parser_deinit(&p);
     PASS();
 }
@@ -574,7 +574,7 @@ static TEST_FUNC(state, operator_precedence, struct string input, struct string 
     RUN_SUBTEST(
         state,
         check_parser_errors,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         &p
     );
 
@@ -582,14 +582,14 @@ static TEST_FUNC(state, operator_precedence, struct string input, struct string 
     TEST_ASSERT(
         state,
         STRING_EQUAL(actual, expected),
-        CLEANUP(STRING_FREE(actual); ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(STRING_FREE(actual); ast_node_decref(&program->node); parser_deinit(&p)),
         "expected=\"" STRING_FMT "\", got=\"" STRING_FMT "\"",
         STRING_ARG(expected),
         STRING_ARG(actual)
     );
 
     STRING_FREE(actual);
-    ast_node_free(&program->node);
+    ast_node_decref(&program->node);
     parser_deinit(&p);
     PASS();
 }
@@ -604,14 +604,14 @@ static TEST_FUNC0(state, if_expression) {
     RUN_SUBTEST(
         state,
         check_parser_errors,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         &p
     );
 
     TEST_ASSERT(
         state,
         program->statements.len == 1,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program has not enough statements. got=%zu",
         program->statements.len
     );
@@ -619,7 +619,7 @@ static TEST_FUNC0(state, if_expression) {
     TEST_ASSERT(
         state,
         program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
         STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
     );
@@ -629,7 +629,7 @@ static TEST_FUNC0(state, if_expression) {
     TEST_ASSERT(
         state,
         stmt->expression->type == AST_EXPRESSION_IF,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "stmt.expression is not ast_if_expression*. got=" STRING_FMT,
         STRING_ARG(ast_expression_type_string(stmt->expression->type))
     );
@@ -638,7 +638,7 @@ static TEST_FUNC0(state, if_expression) {
     RUN_SUBTEST(
         state,
         infix_expression,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         exp->condition,
         test_value_string(S("x")),
         S("<"),
@@ -648,7 +648,7 @@ static TEST_FUNC0(state, if_expression) {
     TEST_ASSERT(
         state,
         exp->consequence->statements.len == 1,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "consequence is not 1 statements. got=%zu",
         exp->consequence->statements.len
     );
@@ -656,7 +656,7 @@ static TEST_FUNC0(state, if_expression) {
     TEST_ASSERT(
         state,
         exp->consequence->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "consequence.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
         STRING_ARG(ast_statement_type_string(exp->consequence->statements.ptr[0]->type))
     );
@@ -666,7 +666,7 @@ static TEST_FUNC0(state, if_expression) {
     RUN_SUBTEST(
         state,
         identifier,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         consequence->expression,
         S("x")
     );
@@ -674,12 +674,12 @@ static TEST_FUNC0(state, if_expression) {
     TEST_ASSERT(
         state,
         exp->alternative == NULL,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "exp.alternative was not NULL. got=" STRING_FMT,
         STRING_ARG(ast_statement_string(&exp->alternative->statement))
     );
 
-    ast_node_free(&program->node);
+    ast_node_decref(&program->node);
     parser_deinit(&p);
     PASS();
 }
@@ -694,14 +694,14 @@ static TEST_FUNC0(state, if_else_expression) {
     RUN_SUBTEST(
         state,
         check_parser_errors,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         &p
     );
 
     TEST_ASSERT(
         state,
         program->statements.len == 1,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program has not enough statements. got=%zu",
         program->statements.len
     );
@@ -709,7 +709,7 @@ static TEST_FUNC0(state, if_else_expression) {
     TEST_ASSERT(
         state,
         program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
         STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
     );
@@ -719,7 +719,7 @@ static TEST_FUNC0(state, if_else_expression) {
     TEST_ASSERT(
         state,
         stmt->expression->type == AST_EXPRESSION_IF,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "stmt.expression is not ast_if_expression*. got=" STRING_FMT,
         STRING_ARG(ast_expression_type_string(stmt->expression->type))
     );
@@ -728,7 +728,7 @@ static TEST_FUNC0(state, if_else_expression) {
     RUN_SUBTEST(
         state,
         infix_expression,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         exp->condition,
         test_value_string(S("x")),
         S("<"),
@@ -738,7 +738,7 @@ static TEST_FUNC0(state, if_else_expression) {
     TEST_ASSERT(
         state,
         exp->consequence->statements.len == 1,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "consequence is not 1 statements. got=%zu",
         exp->consequence->statements.len
     );
@@ -746,7 +746,7 @@ static TEST_FUNC0(state, if_else_expression) {
     TEST_ASSERT(
         state,
         exp->consequence->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "consequence.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
         STRING_ARG(ast_statement_type_string(exp->consequence->statements.ptr[0]->type))
     );
@@ -756,7 +756,7 @@ static TEST_FUNC0(state, if_else_expression) {
     RUN_SUBTEST(
         state,
         identifier,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         consequence->expression,
         S("x")
     );
@@ -764,7 +764,7 @@ static TEST_FUNC0(state, if_else_expression) {
     TEST_ASSERT(
         state,
         exp->alternative->statements.len == 1,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "alternative is not 1 statements. got=%zu",
         exp->alternative->statements.len
     );
@@ -772,7 +772,7 @@ static TEST_FUNC0(state, if_else_expression) {
     TEST_ASSERT(
         state,
         exp->alternative->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "alternative.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
         STRING_ARG(ast_statement_type_string(exp->alternative->statements.ptr[0]->type))
     );
@@ -783,12 +783,12 @@ static TEST_FUNC0(state, if_else_expression) {
     RUN_SUBTEST(
         state,
         identifier,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         alternative->expression,
         S("y")
     );
 
-    ast_node_free(&program->node);
+    ast_node_decref(&program->node);
     parser_deinit(&p);
     PASS();
 }
@@ -804,14 +804,14 @@ static TEST_FUNC0(state, function_literal) {
     RUN_SUBTEST(
         state,
         check_parser_errors,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         &p
     );
 
     TEST_ASSERT(
         state,
         program->statements.len == 1,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program has not enough statements. got=%zu",
         program->statements.len
     );
@@ -819,7 +819,7 @@ static TEST_FUNC0(state, function_literal) {
     TEST_ASSERT(
         state,
         program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
         STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
     );
@@ -830,7 +830,7 @@ static TEST_FUNC0(state, function_literal) {
     TEST_ASSERT(
         state,
         stmt->expression->type == AST_EXPRESSION_FUNCTION,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "stmt.expression is not ast_function_literal*. got=" STRING_FMT,
         STRING_ARG(ast_expression_type_string(stmt->expression->type))
     );
@@ -839,7 +839,7 @@ static TEST_FUNC0(state, function_literal) {
     TEST_ASSERT(
         state,
         function->parameters.len == 2,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "function literal parameters wrong. want 2, got=%zu",
         function->parameters.len
     );
@@ -847,7 +847,7 @@ static TEST_FUNC0(state, function_literal) {
     RUN_SUBTEST(
         state,
         identifier,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         &function->parameters.ptr[0]->expression,
         S("x")
     );
@@ -855,7 +855,7 @@ static TEST_FUNC0(state, function_literal) {
     RUN_SUBTEST(
         state,
         identifier,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         &function->parameters.ptr[1]->expression,
         S("y")
     );
@@ -863,7 +863,7 @@ static TEST_FUNC0(state, function_literal) {
     TEST_ASSERT(
         state,
         function->body->statements.len == 1,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "function body statements has not 1 statements. got=%zu",
         function->body->statements.len
     );
@@ -874,14 +874,14 @@ static TEST_FUNC0(state, function_literal) {
     RUN_SUBTEST(
         state,
         infix_expression,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         body_stmt->expression,
         test_value_string(S("x")),
         S("+"),
         test_value_string(S("y"))
     );
 
-    ast_node_free(&program->node);
+    ast_node_decref(&program->node);
     parser_deinit(&p);
     PASS();
 }
@@ -902,14 +902,14 @@ static TEST_FUNC(
     RUN_SUBTEST(
         state,
         check_parser_errors,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         &p
     );
 
     TEST_ASSERT(
         state,
         program->statements.len == 1,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program has not enough statements. got=%zu",
         program->statements.len
     );
@@ -917,7 +917,7 @@ static TEST_FUNC(
     TEST_ASSERT(
         state,
         program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
         STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
     );
@@ -928,7 +928,7 @@ static TEST_FUNC(
     TEST_ASSERT(
         state,
         stmt->expression->type == AST_EXPRESSION_FUNCTION,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "stmt.expression is not ast_function_literal*. got=" STRING_FMT,
         STRING_ARG(ast_expression_type_string(stmt->expression->type))
     );
@@ -937,7 +937,7 @@ static TEST_FUNC(
     TEST_ASSERT(
         state,
         function->parameters.len == expected_params.len,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "function literal parameters wrong. want %zu, got=%zu",
         expected_params.len,
         function->parameters.len
@@ -947,13 +947,13 @@ static TEST_FUNC(
         RUN_SUBTEST(
             state,
             identifier,
-            CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+            CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
             &function->parameters.ptr[i]->expression,
             expected_params.ptr[i]
         );
     }
 
-    ast_node_free(&program->node);
+    ast_node_decref(&program->node);
     parser_deinit(&p);
     PASS();
 }
@@ -969,14 +969,14 @@ static TEST_FUNC0(state, call_expression) {
     RUN_SUBTEST(
         state,
         check_parser_errors,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         &p
     );
 
     TEST_ASSERT(
         state,
         program->statements.len == 1,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program has not enough statements. got=%zu",
         program->statements.len
     );
@@ -984,7 +984,7 @@ static TEST_FUNC0(state, call_expression) {
     TEST_ASSERT(
         state,
         program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
         STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
     );
@@ -995,7 +995,7 @@ static TEST_FUNC0(state, call_expression) {
     TEST_ASSERT(
         state,
         stmt->expression->type == AST_EXPRESSION_CALL,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "stmt.expression is not ast_call_expression*. got=" STRING_FMT,
         STRING_ARG(ast_expression_type_string(stmt->expression->type))
     );
@@ -1005,7 +1005,7 @@ static TEST_FUNC0(state, call_expression) {
     RUN_SUBTEST(
         state,
         identifier,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         exp->function,
         S("add")
     );
@@ -1013,7 +1013,7 @@ static TEST_FUNC0(state, call_expression) {
     TEST_ASSERT(
         state,
         exp->arguments.len == 3,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         "wrong length of arguments. got=%zu",
         exp->arguments.len
     );
@@ -1021,14 +1021,14 @@ static TEST_FUNC0(state, call_expression) {
     RUN_SUBTEST(
         state,
         integer_literal,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         exp->arguments.ptr[0],
         1
     );
     RUN_SUBTEST(
         state,
         infix_expression,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         exp->arguments.ptr[1],
         test_value_int64(2),
         S("*"),
@@ -1037,14 +1037,14 @@ static TEST_FUNC0(state, call_expression) {
     RUN_SUBTEST(
         state,
         infix_expression,
-        CLEANUP(ast_node_free(&program->node); parser_deinit(&p)),
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
         exp->arguments.ptr[2],
         test_value_int64(4),
         S("+"),
         test_value_int64(5)
     );
 
-    ast_node_free(&program->node);
+    ast_node_decref(&program->node);
     parser_deinit(&p);
     PASS();
 }

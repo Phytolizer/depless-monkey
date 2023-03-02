@@ -326,10 +326,11 @@ eval_expression(struct evaluator* ev, struct ast_expression* expression, struct 
             for (size_t i = 0; i < func->parameters.len; i++) {
                 BUF_PUSH(
                     &params,
-                    (struct ast_identifier*)ast_expression_dup(&func->parameters.ptr[i]->expression)
+                    (struct ast_identifier*)
+                        ast_node_incref(&func->parameters.ptr[i]->expression.node)
                 );
             }
-            auto body = (struct ast_block_statement*)ast_statement_dup(&func->body->statement);
+            auto body = (struct ast_block_statement*)ast_node_incref(&func->body->statement.node);
             return object_function_init_base(params, body, env);
         }
         case AST_EXPRESSION_CALL: {

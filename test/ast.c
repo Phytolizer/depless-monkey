@@ -23,12 +23,12 @@ static TEST_FUNC0(state, string) {
     TEST_ASSERT(
         state,
         STRING_EQUAL(actual, STRING_REF("let myVar = anotherVar;")),
-        CLEANUP(STRING_FREE(actual); ast_node_free(&program->node)),
+        CLEANUP(STRING_FREE(actual); ast_node_decref(&program->node)),
         "program.string() wrong. got=\"" STRING_FMT "\"",
         STRING_ARG(actual)
     );
     STRING_FREE(actual);
-    ast_node_free(&program->node);
+    ast_node_decref(&program->node);
     PASS();
 }
 
