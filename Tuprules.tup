@@ -8,10 +8,10 @@ CFLAGS += -O3 -flto -march=native -mtune=native -fno-omit-frame-pointer
 endif
 
 ifeq (@(DEBUG),y)
-ifndef NOASAN
-ASANFLAGS = -fsanitize=address,undefined,integer -fno-sanitize-recover=all
-CFLAGS += $(ASANFLAGS)
-LDFLAGS += $(ASANFLAGS)
+ifeq (@(NOSAN),n)
+SANFLAGS = -fsanitize=address,undefined,integer -fno-sanitize-recover=all
+CFLAGS += $(SANFLAGS)
+LDFLAGS += $(SANFLAGS)
 endif
 endif
 
