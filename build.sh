@@ -6,6 +6,7 @@ cd "test"
 (clang -O3 -flto -march=native -mtune=native -fno-omit-frame-pointer -Iinclude -I../include -c evaluator.c -o evaluator.o)
 (clang -O3 -flto -march=native -mtune=native -fno-omit-frame-pointer -Iinclude -I../include -c lexer.c -o lexer.o)
 (clang -O3 -flto -march=native -mtune=native -fno-omit-frame-pointer -Iinclude -I../include -c main.c -o main.o)
+(clang -O3 -flto -march=native -mtune=native -fno-omit-frame-pointer -Iinclude -I../include -c object.c -o object.o)
 (clang -O3 -flto -march=native -mtune=native -fno-omit-frame-pointer -Iinclude -I../include -c parser.c -o parser.o)
 cd "../src"
 (clang -O3 -flto -march=native -mtune=native -fno-omit-frame-pointer -I../include -c ast.c -o ast.o)
@@ -20,7 +21,8 @@ cd "../src"
 (clang -O3 -flto -march=native -mtune=native -fno-omit-frame-pointer -I../include -c token.c -o token.o)
 (ar rcs libmonkey.a ast.o environment.o evaluator.o lexer.o object.o parseint.o parser.o repl.o string.o token.o)
 cd "../test"
-(clang -flto ast.o evaluator.o lexer.o main.o parser.o ../src/libmonkey.a -o monkey-test)
+(clang -flto ast.o evaluator.o lexer.o main.o object.o parser.o ../src/libmonkey.a -o monkey-test)
 cd "../app"
 (clang -O3 -flto -march=native -mtune=native -fno-omit-frame-pointer -I../include -c main.c -o main.o)
-(clang -flto main.o ../src/libmonkey.a -o monkey)
+(clang -O3 -flto -march=native -mtune=native -fno-omit-frame-pointer -I../include -c slurp.c -o slurp.o)
+(clang -flto main.o slurp.o ../src/libmonkey.a -o monkey)
