@@ -1267,6 +1267,461 @@ static TEST_FUNC0(state, index_expressions) {
     PASS();
 }
 
+static TEST_FUNC0(state, hash_literal_string_keys) {
+    const struct string input = S("{\"one\": 1, \"two\": 2, \"three\": 3}");
+    struct lexer l;
+    lexer_init(&l, input);
+    struct parser p;
+    parser_init(&p, &l);
+    struct ast_program* program = parse_program(&p);
+
+    RUN_SUBTEST(
+        state,
+        check_parser_errors,
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
+        &p
+    );
+    parser_deinit(&p);
+
+    TEST_ASSERT(
+        state,
+        program->statements.len == 1,
+        CLEANUP(ast_node_decref(&program->node)),
+        "program does not have 1 statement. got=%zu",
+        program->statements.len
+    );
+
+    TEST_ASSERT(
+        state,
+        program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
+        CLEANUP(ast_node_decref(&program->node)),
+        "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
+        STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
+    );
+
+    struct ast_expression_statement* stmt =
+        (struct ast_expression_statement*)program->statements.ptr[0];
+
+    TEST_ASSERT(
+        state,
+        stmt->expression->type == AST_EXPRESSION_HASH,
+        CLEANUP(ast_node_decref(&program->node)),
+        "stmt.expression is not ast_hash_literal*. got=" STRING_FMT,
+        STRING_ARG(ast_expression_type_string(stmt->expression->type))
+    );
+
+    struct ast_hash_literal* hash = (struct ast_hash_literal*)stmt->expression;
+    TEST_ASSERT(
+        state,
+        hash->pairs.count == 3,
+        CLEANUP(ast_node_decref(&program->node)),
+        "hash.count is not 3. got=%zu",
+        hash->pairs.count
+    );
+
+    struct {
+        struct string key;
+        int64_t value;
+    } expected[] = {
+        {S("one"), 1},
+        {S("two"), 2},
+        {S("three"), 3},
+    };
+
+    for (const struct ast_expression_hash_bucket* bucket = ast_expression_hash_first(&hash->pairs);
+         bucket != NULL;
+         bucket = ast_expression_hash_next(&hash->pairs, bucket)) {
+        TEST_ASSERT(
+            state,
+            bucket->key->type == AST_EXPRESSION_STRING,
+            CLEANUP(ast_node_decref(&program->node)),
+            "bucket.key is not ast_string*. got=" STRING_FMT,
+            STRING_ARG(ast_expression_type_string(bucket->key->type))
+        );
+        struct string actual = ((struct ast_string_literal*)bucket->key)->value;
+
+        bool found = false;
+        for (size_t i = 0; i < sizeof(expected) / sizeof(*expected); i++) {
+            if (STRING_EQUAL(expected[i].key, actual)) {
+                found = true;
+                RUN_SUBTEST(
+                    state,
+                    integer_literal,
+                    CLEANUP(ast_node_decref(&program->node)),
+                    bucket->value,
+                    expected[i].value
+                );
+            }
+        }
+        TEST_ASSERT(
+            state,
+            found,
+            CLEANUP(ast_node_decref(&program->node)),
+            "unexpected key in hash: " STRING_FMT,
+            STRING_ARG(actual)
+        );
+    }
+
+    ast_node_decref(&program->node);
+    PASS();
+}
+
+static TEST_FUNC0(state, hash_literal_bool_keys) {
+    const struct string input = S("{true: 1, false: 2}");
+    struct lexer l;
+    lexer_init(&l, input);
+    struct parser p;
+    parser_init(&p, &l);
+    struct ast_program* program = parse_program(&p);
+
+    RUN_SUBTEST(
+        state,
+        check_parser_errors,
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
+        &p
+    );
+    parser_deinit(&p);
+
+    TEST_ASSERT(
+        state,
+        program->statements.len == 1,
+        CLEANUP(ast_node_decref(&program->node)),
+        "program does not have 1 statement. got=%zu",
+        program->statements.len
+    );
+
+    TEST_ASSERT(
+        state,
+        program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
+        CLEANUP(ast_node_decref(&program->node)),
+        "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
+        STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
+    );
+
+    struct ast_expression_statement* stmt =
+        (struct ast_expression_statement*)program->statements.ptr[0];
+
+    TEST_ASSERT(
+        state,
+        stmt->expression->type == AST_EXPRESSION_HASH,
+        CLEANUP(ast_node_decref(&program->node)),
+        "stmt.expression is not ast_hash_literal*. got=" STRING_FMT,
+        STRING_ARG(ast_expression_type_string(stmt->expression->type))
+    );
+
+    struct ast_hash_literal* hash = (struct ast_hash_literal*)stmt->expression;
+    TEST_ASSERT(
+        state,
+        hash->pairs.count == 2,
+        CLEANUP(ast_node_decref(&program->node)),
+        "hash.count is not 2. got=%zu",
+        hash->pairs.count
+    );
+
+    struct {
+        bool key;
+        int64_t value;
+    } expected[] = {
+        {true, 1},
+        {false, 2},
+    };
+
+    for (const struct ast_expression_hash_bucket* bucket = ast_expression_hash_first(&hash->pairs);
+         bucket != NULL;
+         bucket = ast_expression_hash_next(&hash->pairs, bucket)) {
+        TEST_ASSERT(
+            state,
+            bucket->key->type == AST_EXPRESSION_BOOLEAN,
+            CLEANUP(ast_node_decref(&program->node)),
+            "bucket.key is not ast_boolean*. got=" STRING_FMT,
+            STRING_ARG(ast_expression_type_string(bucket->key->type))
+        );
+        bool actual = ((struct ast_boolean*)bucket->key)->value;
+
+        bool found = false;
+        for (size_t i = 0; i < sizeof(expected) / sizeof(*expected); i++) {
+            if (expected[i].key == actual) {
+                found = true;
+                RUN_SUBTEST(
+                    state,
+                    integer_literal,
+                    CLEANUP(ast_node_decref(&program->node)),
+                    bucket->value,
+                    expected[i].value
+                );
+            }
+        }
+        TEST_ASSERT(
+            state,
+            found,
+            CLEANUP(ast_node_decref(&program->node)),
+            "unexpected key in hash: " STRING_FMT,
+            STRING_ARG(actual ? S("true") : S("false"))
+        );
+    }
+
+    ast_node_decref(&program->node);
+    PASS();
+}
+
+static TEST_FUNC0(state, hash_literal_integer_keys) {
+    const struct string input = S("{1: 2, 2: 4, 3: 6}");
+    struct lexer l;
+    lexer_init(&l, input);
+    struct parser p;
+    parser_init(&p, &l);
+    struct ast_program* program = parse_program(&p);
+
+    RUN_SUBTEST(
+        state,
+        check_parser_errors,
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
+        &p
+    );
+    parser_deinit(&p);
+
+    TEST_ASSERT(
+        state,
+        program->statements.len == 1,
+        CLEANUP(ast_node_decref(&program->node)),
+        "program does not have 1 statement. got=%zu",
+        program->statements.len
+    );
+
+    TEST_ASSERT(
+        state,
+        program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
+        CLEANUP(ast_node_decref(&program->node)),
+        "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
+        STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
+    );
+
+    struct ast_expression_statement* stmt =
+        (struct ast_expression_statement*)program->statements.ptr[0];
+
+    TEST_ASSERT(
+        state,
+        stmt->expression->type == AST_EXPRESSION_HASH,
+        CLEANUP(ast_node_decref(&program->node)),
+        "stmt.expression is not ast_hash_literal*. got=" STRING_FMT,
+        STRING_ARG(ast_expression_type_string(stmt->expression->type))
+    );
+
+    struct ast_hash_literal* hash = (struct ast_hash_literal*)stmt->expression;
+    TEST_ASSERT(
+        state,
+        hash->pairs.count == 3,
+        CLEANUP(ast_node_decref(&program->node)),
+        "hash.count is not 3. got=%zu",
+        hash->pairs.count
+    );
+
+    struct {
+        int64_t key;
+        int64_t value;
+    } expected[] = {
+        {1, 2},
+        {2, 4},
+        {3, 6},
+    };
+
+    for (const struct ast_expression_hash_bucket* bucket = ast_expression_hash_first(&hash->pairs);
+         bucket != NULL;
+         bucket = ast_expression_hash_next(&hash->pairs, bucket)) {
+        TEST_ASSERT(
+            state,
+            bucket->key->type == AST_EXPRESSION_INTEGER_LITERAL,
+            CLEANUP(ast_node_decref(&program->node)),
+            "bucket.key is not ast_integer_literal*. got=" STRING_FMT,
+            STRING_ARG(ast_expression_type_string(bucket->key->type))
+        );
+        int64_t actual = ((struct ast_integer_literal*)bucket->key)->value;
+
+        bool found = false;
+        for (size_t i = 0; i < sizeof(expected) / sizeof(*expected); i++) {
+            if (expected[i].key == actual) {
+                found = true;
+                RUN_SUBTEST(
+                    state,
+                    integer_literal,
+                    CLEANUP(ast_node_decref(&program->node)),
+                    bucket->value,
+                    expected[i].value
+                );
+            }
+        }
+        TEST_ASSERT(
+            state,
+            found,
+            CLEANUP(ast_node_decref(&program->node)),
+            "unexpected key in hash: %" PRId64,
+            actual
+        );
+    }
+
+    ast_node_decref(&program->node);
+    PASS();
+}
+
+static TEST_FUNC0(state, hash_literal_with_expressions) {
+    const struct string input = S("{\"one\": 0 + 1, \"two\": 10 - 8, \"three\": 15 / 5}");
+    struct lexer l;
+    lexer_init(&l, input);
+    struct parser p;
+    parser_init(&p, &l);
+    struct ast_program* program = parse_program(&p);
+
+    RUN_SUBTEST(
+        state,
+        check_parser_errors,
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
+        &p
+    );
+    parser_deinit(&p);
+
+    TEST_ASSERT(
+        state,
+        program->statements.len == 1,
+        CLEANUP(ast_node_decref(&program->node)),
+        "program does not have 1 statement. got=%zu",
+        program->statements.len
+    );
+
+    TEST_ASSERT(
+        state,
+        program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
+        CLEANUP(ast_node_decref(&program->node)),
+        "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
+        STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
+    );
+
+    struct ast_expression_statement* stmt =
+        (struct ast_expression_statement*)program->statements.ptr[0];
+
+    TEST_ASSERT(
+        state,
+        stmt->expression->type == AST_EXPRESSION_HASH,
+        CLEANUP(ast_node_decref(&program->node)),
+        "stmt.expression is not ast_hash_literal*. got=" STRING_FMT,
+        STRING_ARG(ast_expression_type_string(stmt->expression->type))
+    );
+
+    struct ast_hash_literal* hash = (struct ast_hash_literal*)stmt->expression;
+    TEST_ASSERT(
+        state,
+        hash->pairs.count == 3,
+        CLEANUP(ast_node_decref(&program->node)),
+        "hash.count is not 3. got=%zu",
+        hash->pairs.count
+    );
+
+    struct {
+        struct string key;
+        int64_t left;
+        struct string op;
+        int64_t right;
+    } expected[] = {
+        {S("one"), 0, S("+"), 1},
+        {S("two"), 10, S("-"), 8},
+        {S("three"), 15, S("/"), 5},
+    };
+
+    for (const struct ast_expression_hash_bucket* bucket = ast_expression_hash_first(&hash->pairs);
+         bucket != NULL;
+         bucket = ast_expression_hash_next(&hash->pairs, bucket)) {
+        TEST_ASSERT(
+            state,
+            bucket->key->type == AST_EXPRESSION_STRING,
+            CLEANUP(ast_node_decref(&program->node)),
+            "bucket.key is not ast_string*. got=" STRING_FMT,
+            STRING_ARG(ast_expression_type_string(bucket->key->type))
+        );
+        struct string actual = ((struct ast_string_literal*)bucket->key)->value;
+
+        bool found = false;
+        for (size_t i = 0; i < sizeof(expected) / sizeof(*expected); i++) {
+            if (STRING_EQUAL(expected[i].key, actual)) {
+                found = true;
+                RUN_SUBTEST(
+                    state,
+                    infix_expression,
+                    CLEANUP(ast_node_decref(&program->node)),
+                    bucket->value,
+                    test_value_int64(expected[i].left),
+                    expected[i].op,
+                    test_value_int64(expected[i].right)
+                );
+            }
+        }
+        TEST_ASSERT(
+            state,
+            found,
+            CLEANUP(ast_node_decref(&program->node)),
+            "unexpected key in hash: " STRING_FMT,
+            STRING_ARG(actual)
+        );
+    }
+
+    ast_node_decref(&program->node);
+    PASS();
+}
+
+static TEST_FUNC0(state, empty_hash_literal) {
+    const struct string input = S("{}");
+    struct lexer l;
+    lexer_init(&l, input);
+    struct parser p;
+    parser_init(&p, &l);
+    struct ast_program* program = parse_program(&p);
+
+    RUN_SUBTEST(
+        state,
+        check_parser_errors,
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
+        &p
+    );
+    parser_deinit(&p);
+
+    TEST_ASSERT(
+        state,
+        program->statements.len == 1,
+        CLEANUP(ast_node_decref(&program->node)),
+        "program does not have 1 statement. got=%zu",
+        program->statements.len
+    );
+
+    TEST_ASSERT(
+        state,
+        program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
+        CLEANUP(ast_node_decref(&program->node)),
+        "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
+        STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
+    );
+
+    struct ast_expression_statement* stmt =
+        (struct ast_expression_statement*)program->statements.ptr[0];
+
+    TEST_ASSERT(
+        state,
+        stmt->expression->type == AST_EXPRESSION_HASH,
+        CLEANUP(ast_node_decref(&program->node)),
+        "stmt.expression is not ast_hash_literal*. got=" STRING_FMT,
+        STRING_ARG(ast_expression_type_string(stmt->expression->type))
+    );
+
+    struct ast_hash_literal* hash = (struct ast_hash_literal*)stmt->expression;
+    TEST_ASSERT(
+        state,
+        hash->pairs.count == 0,
+        CLEANUP(ast_node_decref(&program->node)),
+        "hash.count is not 0. got=%zu",
+        hash->pairs.count
+    );
+
+    ast_node_decref(&program->node);
+    PASS();
+}
+
 SUITE_FUNC(state, parser) {
     struct {
         struct string input;
@@ -1467,4 +1922,9 @@ SUITE_FUNC(state, parser) {
     RUN_TEST0(state, string_literal_expression, S("string literal expression"));
     RUN_TEST0(state, array_literals, S("array literals"));
     RUN_TEST0(state, index_expressions, S("index expressions"));
+    RUN_TEST0(state, hash_literal_string_keys, S("hash literal (string keys)"));
+    RUN_TEST0(state, hash_literal_bool_keys, S("hash literal (bool keys)"));
+    RUN_TEST0(state, hash_literal_integer_keys, S("hash literal (integer keys)"));
+    RUN_TEST0(state, hash_literal_with_expressions, S("hash literal (expression values)"));
+    RUN_TEST0(state, empty_hash_literal, S("hash literal (empty)"));
 }

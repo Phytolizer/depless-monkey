@@ -342,4 +342,44 @@ static inline struct ast_expression* ast_index_expression_init_base(
     return &ast_index_expression_init(token, left, index)->expression;
 }
 
+struct ast_expression_hash_bucket {
+    struct ast_expression* key;
+    struct ast_expression* value;
+};
+
+BUF_T(struct ast_expression_hash_bucket, ast_expression_hash_bucket);
+
+struct ast_expression_hash {
+    struct ast_expression_hash_bucket_buf buckets;
+    size_t count;
+};
+
+extern void ast_expression_hash_init(struct ast_expression_hash* hash);
+extern void ast_expression_hash_free(struct ast_expression_hash* hash);
+extern void ast_expression_hash_insert(
+    struct ast_expression_hash* hash,
+    struct ast_expression* key,
+    struct ast_expression* value
+);
+extern const struct ast_expression_hash_bucket* ast_expression_hash_first(
+    const struct ast_expression_hash* hash
+);
+extern const struct ast_expression_hash_bucket* ast_expression_hash_next(
+    const struct ast_expression_hash* hash,
+    const struct ast_expression_hash_bucket* bucket
+);
+
+struct ast_hash_literal {
+    struct ast_expression expression;
+    struct token token;
+    struct ast_expression_hash pairs;
+};
+
+extern struct ast_hash_literal*
+ast_hash_literal_init(struct token token, struct ast_expression_hash pairs);
+static inline struct ast_expression*
+ast_hash_literal_init_base(struct token token, struct ast_expression_hash pairs) {
+    return &ast_hash_literal_init(token, pairs)->expression;
+}
+
 #endif  // MONKEY_AST_H_

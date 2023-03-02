@@ -1,5 +1,7 @@
 #include "monkey/ast.h"
 
+#include <iso646.h>
+
 #include "monkey/private/stdc.h"
 
 struct ast_node ast_node_init(
@@ -845,5 +847,152 @@ struct ast_index_expression* ast_index_expression_init(
     self->token = token;
     self->left = left;
     self->index = index;
+    return self;
+}
+
+void ast_expression_hash_init(struct ast_expression_hash* hash) {
+    hash->count = 0;
+    hash->buckets = (struct ast_expression_hash_bucket_buf){0};
+}
+
+void ast_expression_hash_free(struct ast_expression_hash* hash) {
+    for (size_t i = 0; i < hash->buckets.len; i++) {
+        if (hash->buckets.ptr[i].key == NULL) continue;
+        if (ast_expression_decref(hash->buckets.ptr[i].key) == 0) {
+            free(hash->buckets.ptr[i].key);
+        }
+        if (ast_expression_decref(hash->buckets.ptr[i].value) == 0) {
+            free(hash->buckets.ptr[i].value);
+        }
+    }
+    BUF_FREE(hash->buckets);
+}
+
+ALLOW_UINT_OVERFLOW static uint64_t hash_expression(const struct ast_expression* expression) {
+    uint64_t hash = 0xcbf29ce484222325;
+    size_t ptr = (size_t)expression;
+    // hash the pointer value (FNV-1a)
+    for (size_t i = 0; i < sizeof(ptr); i++) {
+        hash ^= (ptr >> (i * 8)) & 0xff;
+        hash *= 0x100000001b3;
+    }
+    return hash;
+}
+
+static struct ast_expression_hash_bucket*
+hash_bucket(struct ast_expression_hash_bucket_buf buckets, const struct ast_expression* key) {
+    uint64_t hash_value = hash_expression(key);
+    size_t index = hash_value % buckets.len;
+    while (buckets.ptr[index].key != NULL and buckets.ptr[index].key != key) {
+        index = (index + 1) % buckets.len;
+    }
+    return &buckets.ptr[index];
+}
+
+void ast_expression_hash_insert(
+    struct ast_expression_hash* hash,
+    struct ast_expression* key,
+    struct ast_expression* value
+) {
+    if (hash->buckets.len == 0 or (double) hash->count / (double)hash->buckets.len >= 0.75) {
+        size_t new_len = hash->buckets.len == 0 ? 8 : hash->buckets.len * 2;
+        struct ast_expression_hash_bucket* new_buckets_alloc =
+            calloc(new_len, sizeof(struct ast_expression_hash_bucket));
+        auto new_buckets =
+            BUF_OWNER(struct ast_expression_hash_bucket_buf, new_buckets_alloc, new_len);
+
+        for (size_t i = 0; i < hash->buckets.len; i++) {
+            if (hash->buckets.ptr[i].key == NULL) continue;
+            struct ast_expression_hash_bucket* bucket =
+                hash_bucket(new_buckets, hash->buckets.ptr[i].key);
+            bucket->key = hash->buckets.ptr[i].key;
+            bucket->value = hash->buckets.ptr[i].value;
+        }
+
+        BUF_FREE(hash->buckets);
+        hash->buckets = new_buckets;
+    }
+
+    struct ast_expression_hash_bucket* bucket = hash_bucket(hash->buckets, key);
+    if (bucket->key == NULL) {
+        hash->count++;
+    }
+    bucket->key = key;
+    bucket->value = value;
+}
+
+const struct ast_expression_hash_bucket* ast_expression_hash_first(
+    const struct ast_expression_hash* hash
+) {
+    for (size_t i = 0; i < hash->buckets.len; i++) {
+        if (hash->buckets.ptr[i].key != NULL) {
+            return &hash->buckets.ptr[i];
+        }
+    }
+    return NULL;
+}
+
+const struct ast_expression_hash_bucket* ast_expression_hash_next(
+    const struct ast_expression_hash* hash,
+    const struct ast_expression_hash_bucket* bucket
+) {
+    size_t index = bucket - hash->buckets.ptr;
+    for (size_t i = index + 1; i < hash->buckets.len; i++) {
+        if (hash->buckets.ptr[i].key != NULL) {
+            return &hash->buckets.ptr[i];
+        }
+    }
+    return NULL;
+}
+
+static struct string hash_literal_token_literal(const struct ast_node* node) {
+    auto self = (const struct ast_hash_literal*)node;
+    return self->token.literal;
+}
+
+static struct string hash_literal_string(const struct ast_node* node) {
+    auto self = (const struct ast_hash_literal*)node;
+    struct string buf = string_dup(STRING_REF("{"));
+    bool first = true;
+    for (auto bucket = ast_expression_hash_first(&self->pairs); bucket != NULL;
+         bucket = ast_expression_hash_next(&self->pairs, bucket)) {
+        if (!first) {
+            string_append(&buf, STRING_REF(", "));
+        }
+        struct string key_str = ast_expression_string(bucket->key);
+        struct string value_str = ast_expression_string(bucket->value);
+        string_append_printf(
+            &buf,
+            STRING_FMT ": " STRING_FMT,
+            STRING_ARG(key_str),
+            STRING_ARG(value_str)
+        );
+        STRING_FREE(key_str);
+        STRING_FREE(value_str);
+    }
+    string_append(&buf, STRING_REF("}"));
+    return buf;
+}
+
+static size_t hash_literal_decref(struct ast_node* node) {
+    node->rc--;
+    if (node->rc > 0) return node->rc;
+    auto self = (struct ast_hash_literal*)node;
+    STRING_FREE(self->token.literal);
+    ast_expression_hash_free(&self->pairs);
+    return 0;
+}
+
+struct ast_hash_literal*
+ast_hash_literal_init(struct token token, struct ast_expression_hash pairs) {
+    struct ast_hash_literal* self = malloc(sizeof(*self));
+    self->expression = ast_expression_init(
+        AST_EXPRESSION_HASH,
+        hash_literal_token_literal,
+        hash_literal_string,
+        hash_literal_decref
+    );
+    self->token = token;
+    self->pairs = pairs;
     return self;
 }

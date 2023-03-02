@@ -332,6 +332,45 @@ static struct ast_expression* parse_array_literal(struct parser* p) {
     return ast_array_literal_init_base(token, elements);
 }
 
+static struct ast_expression* parse_hash_literal(struct parser* p) {
+    struct token token = take_cur(p);
+    struct ast_expression_hash hash;
+    ast_expression_hash_init(&hash);
+
+    while (p->peek_token.type != TOKEN_RBRACE) {
+        next_token(p);
+
+        struct ast_expression* key = parse_expression(p, PREC_LOWEST);
+        if (!expect_peek(p, TOKEN_COLON)) {
+            if (ast_expression_decref(key) == 0) {
+                free(key);
+            }
+            ast_expression_hash_free(&hash);
+            STRING_FREE(token.literal);
+            return NULL;
+        }
+
+        next_token(p);
+
+        struct ast_expression* value = parse_expression(p, PREC_LOWEST);
+        ast_expression_hash_insert(&hash, key, value);
+
+        if (p->peek_token.type != TOKEN_RBRACE and !expect_peek(p, TOKEN_COMMA)) {
+            ast_expression_hash_free(&hash);
+            STRING_FREE(token.literal);
+            return NULL;
+        }
+    }
+
+    if (!expect_peek(p, TOKEN_RBRACE)) {
+        ast_expression_hash_free(&hash);
+        STRING_FREE(token.literal);
+        return NULL;
+    }
+
+    return ast_hash_literal_init_base(token, hash);
+}
+
 static prefix_parse_fn_t* prefix_parse_fn(enum token_type type) {
     switch (type) {
         case TOKEN_IDENT:
@@ -354,12 +393,15 @@ static prefix_parse_fn_t* prefix_parse_fn(enum token_type type) {
             return &parse_string_literal;
         case TOKEN_LBRACKET:
             return &parse_array_literal;
+        case TOKEN_LBRACE:
+            return &parse_hash_literal;
         default:
             return NULL;
     }
 }
 
-static struct ast_expression* parse_index_expression(struct parser* p, struct ast_expression* left) {
+static struct ast_expression*
+parse_index_expression(struct parser* p, struct ast_expression* left) {
     struct token token = take_cur(p);
 
     next_token(p);
