@@ -19,6 +19,7 @@ X(NOT_EQ, "!=")
 
 X(COMMA, ",")
 X(SEMICOLON, ";")
+X(COLON, ":")
 
 X(LPAREN, "(")
 X(RPAREN, ")")

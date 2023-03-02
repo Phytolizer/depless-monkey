@@ -29,6 +29,7 @@ static TEST_FUNC0(state, next_token) {
         "\"foobar\"\n"
         "\"foo bar\"\n"
         "[1, 2];\n"
+        "{\"foo\": \"bar\"}\n"
     );
 
 #define S(x) STRING_REF_C(x)
@@ -118,6 +119,11 @@ static TEST_FUNC0(state, next_token) {
         {TOKEN_INT, S("2")},
         {TOKEN_RBRACKET, S("]")},
         {TOKEN_SEMICOLON, S(";")},
+        {TOKEN_LBRACE, S("{")},
+        {TOKEN_STRING, S("foo")},
+        {TOKEN_COLON, S(":")},
+        {TOKEN_STRING, S("bar")},
+        {TOKEN_RBRACE, S("}")},
         {TOKEN_EOF, S("")},
     };
     // clang-format on

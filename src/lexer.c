@@ -128,6 +128,9 @@ struct token lexer_next_token(struct lexer* l) {
         case ',':
             tok = new_token(TOKEN_COMMA, l->ch);
             break;
+        case ':':
+            tok = new_token(TOKEN_COLON, l->ch);
+            break;
         case '{':
             tok = new_token(TOKEN_LBRACE, l->ch);
             break;
