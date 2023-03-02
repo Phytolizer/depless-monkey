@@ -351,6 +351,10 @@ eval_expression(struct evaluator* ev, struct ast_expression* expression, struct 
             BUF_FREE(args);
             return result;
         }
+        case AST_EXPRESSION_STRING:
+            return object_string_init_base(
+                string_dup(((struct ast_string_literal*)expression)->value)
+            );
         default:
             // [TODO] eval_expression
             return object_null_init_base();

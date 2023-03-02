@@ -216,3 +216,25 @@ extern struct object_function* object_function_init(
     self->env = env;
     return self;
 }
+
+static struct string string_inspect(const struct object* obj) {
+    auto self = (const struct object_string*)obj;
+    return string_dup(self->value);
+}
+
+static void string_free(struct object* obj) {
+    auto self = DOWNCAST(struct object_string, obj);
+    STRING_FREE(self->value);
+}
+
+static struct object* o_string_dup(const struct object* obj) {
+    auto self = (const struct object_string*)obj;
+    return object_string_init_base(self->value);
+}
+
+struct object_string* object_string_init(struct string value) {
+    struct object_string* self = malloc(sizeof(*self));
+    self->object = object_init(OBJECT_STRING, string_inspect, string_free, o_string_dup);
+    self->value = value;
+    return self;
+}

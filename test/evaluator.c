@@ -203,6 +203,33 @@ static TEST_FUNC0(state, function_object) {
     PASS();
 }
 
+static TEST_FUNC0(state, string_literal) {
+    const struct string input = S("\"Hello, world!\"");
+    struct object* evaluated = test_eval(input);
+
+    TEST_ASSERT(
+        state,
+        evaluated and evaluated->type == OBJECT_STRING,
+        CLEANUP(object_free(evaluated)),
+        "object is not string. got=" STRING_FMT,
+        STRING_ARG(show_obj_type(evaluated))
+    );
+
+    struct object_string* string = (struct object_string*)evaluated;
+
+    TEST_ASSERT(
+        state,
+        STRING_EQUAL(string->value, S("Hello, world!")),
+        CLEANUP(object_free(evaluated)),
+        "string has wrong value. expected=\"" STRING_FMT "\", got=\"" STRING_FMT "\"",
+        STRING_ARG(S("Hello, world!")),
+        STRING_ARG(string->value)
+    );
+
+    object_free(evaluated);
+    PASS();
+}
+
 SUITE_FUNC(state, evaluator) {
     struct {
         struct string input;
@@ -435,13 +462,14 @@ SUITE_FUNC(state, evaluator) {
             function_application_tests[i].expected
         );
     }
-    const struct string closure_input = S(
-        "let newAdder = fn(x) {\n"
-        "  fn(y) { x + y };\n"
-        "};\n"
-        "\n"
-        "let addTwo = newAdder(2);\n"
-        "addTwo(2);\n"
-    );
+    const struct string closure_input =
+        S("let newAdder = fn(x) {\n"
+          "  fn(y) { x + y };\n"
+          "};\n"
+          "\n"
+          "let addTwo = newAdder(2);\n"
+          "addTwo(2);\n");
     RUN_TEST(state, integer_expression, S("closure"), closure_input, 4);
+
+    RUN_TEST0(state, string_literal, S("string literal"));
 }

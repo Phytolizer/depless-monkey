@@ -111,4 +111,14 @@ static inline struct object* object_function_init_base(
     return &object_function_init(parameters, body, env)->object;
 }
 
+struct object_string {
+    struct object object;
+    struct string value;
+};
+
+extern struct object_string* object_string_init(struct string value);
+static inline struct object* object_string_init_base(struct string value) {
+    return &object_string_init(value)->object;
+}
+
 #endif  // MONKEY_OBJECT_H_
