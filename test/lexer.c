@@ -28,6 +28,7 @@ static TEST_FUNC0(state, next_token) {
         "10 != 9;\n"
         "\"foobar\"\n"
         "\"foo bar\"\n"
+        "[1, 2];\n"
     );
 
 #define S(x) STRING_REF_C(x)
@@ -111,6 +112,12 @@ static TEST_FUNC0(state, next_token) {
         {TOKEN_SEMICOLON, S(";")},
         {TOKEN_STRING, S("foobar")},
         {TOKEN_STRING, S("foo bar")},
+        {TOKEN_LBRACKET, S("[")},
+        {TOKEN_INT, S("1")},
+        {TOKEN_COMMA, S(",")},
+        {TOKEN_INT, S("2")},
+        {TOKEN_RBRACKET, S("]")},
+        {TOKEN_SEMICOLON, S(";")},
         {TOKEN_EOF, S("")},
     };
     // clang-format on

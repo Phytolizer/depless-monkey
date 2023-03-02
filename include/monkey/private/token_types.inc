@@ -24,6 +24,8 @@ X(LPAREN, "(")
 X(RPAREN, ")")
 X(LBRACE, "{")
 X(RBRACE, "}")
+X(LBRACKET, "[")
+X(RBRACKET, "]")
 
 X(FUNCTION, "FUNCTION")
 X(LET, "LET")

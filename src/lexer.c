@@ -134,6 +134,12 @@ struct token lexer_next_token(struct lexer* l) {
         case '}':
             tok = new_token(TOKEN_RBRACE, l->ch);
             break;
+        case '[':
+            tok = new_token(TOKEN_LBRACKET, l->ch);
+            break;
+        case ']':
+            tok = new_token(TOKEN_RBRACKET, l->ch);
+            break;
         case '"':
             tok.type = TOKEN_STRING;
             tok.literal = read_string(l);
