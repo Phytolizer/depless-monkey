@@ -20,7 +20,8 @@ static bool eval_source(struct string program, struct environment* env) {
         parser_deinit(&parser);
         return false;
     }
-    eval(&ast->node, env);
+    struct object* obj = eval(&ast->node, env);
+    object_free(obj);
     ast_node_decref(&ast->node);
     parser_deinit(&parser);
     return true;
@@ -35,8 +36,10 @@ int main(int argc, char** argv) {
     } else if (argc == 2) {
         struct string initial_program = slurp_file(STRING_REF_FROM_C(argv[1]));
         if (!eval_source(initial_program, &env)) {
+            STRING_FREE(initial_program);
             exit(1);
         }
+        STRING_FREE(initial_program);
         repl_start(stdin, stdout, &env);
     } else {
         printf(

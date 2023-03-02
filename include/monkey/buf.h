@@ -41,9 +41,10 @@
 
 #define BUF_APPEND(buf, other) \
     do { \
-        BUF_RESERVE(buf, (buf)->len + (other).len); \
-        memcpy((buf)->ptr + (buf)->len, (other).ptr, (other).len * sizeof(*(buf)->ptr)); \
-        (buf)->len += (other).len; \
+        __auto_type other_ = (other); \
+        BUF_RESERVE(buf, (buf)->len + (other_).len); \
+        memcpy((buf)->ptr + (buf)->len, (other_).ptr, (other_).len * sizeof(*(buf)->ptr)); \
+        (buf)->len += (other_).len; \
     } while (false)
 
 #define BUF_FREE(buf) \

@@ -88,15 +88,15 @@ static struct object* builtin_rest(struct object_buf args) {
     }
 
     struct object_array* arr = (struct object_array*)args.ptr[0];
-    if (arr->elements.len > 0) {
+    if (arr->elements.len > 1) {
         struct object_buf elements = {0};
-        BUF_APPEND(
-            &elements,
-            BUF_REF(struct object_buf, arr->elements.ptr + 1, arr->elements.len - 1)
-        );
+        BUF_RESERVE(&elements, arr->elements.len - 1);
+        for (size_t i = 1; i < arr->elements.len; i += 1) {
+            BUF_PUSH(&elements, object_dup(arr->elements.ptr[i]));
+        }
         return object_array_init_base(elements);
     } else {
-        return object_null_init_base();
+        return object_array_init_base((struct object_buf){0});
     }
 }
 
@@ -434,6 +434,13 @@ apply_function(struct evaluator* ev, struct object* fn, struct object_buf args) 
     switch (fn->type) {
         case OBJECT_FUNCTION: {
             auto function = (struct object_function*)fn;
+            if (function->parameters.len != args.len) {
+                return object_error_init_base(string_printf(
+                    "wrong number of arguments: expected %zu, got %zu",
+                    function->parameters.len,
+                    args.len
+                ));
+            }
             struct environment* extended_env = extend_function_env(function, args);
             struct object* evaluated = eval_statement(ev, &function->body->statement, extended_env);
             if (extended_env->outer->rc == 1) {
