@@ -271,14 +271,20 @@ static struct object* o_string_dup(const struct object* obj) {
     return object_string_init_base(self->value);
 }
 
-ALLOW_UINT_OVERFLOW static struct object_hash_key string_hash_key(const struct object* obj) {
-    auto self = (const struct object_string*)obj;
-    // fnv-1a
+ALLOW_UINT_OVERFLOW static uint64_t fnv1a(const void* raw, size_t len) {
+    const unsigned char* data = raw;
     uint64_t hash = UINT64_C(14695981039346656037);
-    for (size_t i = 0; i < self->value.length; i++) {
-        hash ^= self->value.data[i];
+    for (size_t i = 0; i < len; i++) {
+        hash ^= data[i];
         hash *= UINT64_C(1099511628211);
     }
+    return hash;
+}
+
+static struct object_hash_key string_hash_key(const struct object* obj) {
+    auto self = (const struct object_string*)obj;
+    // fnv-1a
+    uint64_t hash = fnv1a(self->value.data, self->value.length);
     return (struct object_hash_key){
         .type = obj->type,
         .value = hash,
@@ -350,5 +356,124 @@ struct object_array* object_array_init(struct object_buf elements) {
     struct object_array* self = malloc(sizeof(*self));
     self->object = object_init(OBJECT_ARRAY, array_inspect, array_free, array_dup, NULL);
     self->elements = elements;
+    return self;
+}
+
+void object_hash_table_init(struct object_hash_table* table) {
+    table->buckets = (struct object_hash_bucket_buf){0};
+    table->count = 0;
+}
+
+void object_hash_table_free(struct object_hash_table* table) {
+    for (size_t i = 0; i < table->buckets.len; i++) {
+        if (table->buckets.ptr[i].value.key == NULL) continue;
+        object_free(table->buckets.ptr[i].value.key);
+        object_free(table->buckets.ptr[i].value.value);
+    }
+    BUF_FREE(table->buckets);
+}
+
+static uint64_t object_hash_hash_key(struct object_hash_key key) {
+    return fnv1a(&key, sizeof(key));
+}
+
+static struct object_hash_bucket*
+object_hash_table_find_bucket(struct object_hash_bucket_buf buckets, struct object_hash_key key) {
+    uint64_t hash = object_hash_hash_key(key);
+    size_t index = hash % buckets.len;
+    while (buckets.ptr[index].value.key != NULL and
+           !object_hash_key_equal(buckets.ptr[index].key, key)) {
+        index = (index + 1) % buckets.len;
+    }
+    return &buckets.ptr[index];
+}
+
+void object_hash_table_insert(
+    struct object_hash_table* table,
+    struct object_hash_key hash_key,
+    struct object* key,
+    struct object* value
+) {
+    if (table->buckets.len == 0 or (double) table->count / (double)table->buckets.len > 0.75) {
+        size_t new_len = table->buckets.len == 0 ? 8 : table->buckets.len * 2;
+        struct object_hash_bucket* new_buckets_alloc = calloc(new_len, sizeof(*new_buckets_alloc));
+        struct object_hash_bucket_buf new_buckets =
+            BUF_OWNER(struct object_hash_bucket_buf, new_buckets_alloc, new_len);
+        for (size_t i = 0; i < table->buckets.len; i++) {
+            if (table->buckets.ptr[i].value.key == NULL) continue;
+            struct object_hash_bucket* bucket =
+                object_hash_table_find_bucket(new_buckets, table->buckets.ptr[i].key);
+            bucket->key = table->buckets.ptr[i].key;
+            bucket->value = table->buckets.ptr[i].value;
+        }
+        BUF_FREE(table->buckets);
+        table->buckets = new_buckets;
+    }
+
+    struct object_hash_bucket* bucket = object_hash_table_find_bucket(table->buckets, hash_key);
+    if (bucket->value.key != NULL) {
+        object_free(bucket->value.key);
+    }
+    if (bucket->value.value != NULL) {
+        object_free(bucket->value.value);
+    }
+    bucket->key = hash_key;
+    bucket->value.key = key;
+    bucket->value.value = value;
+}
+
+struct object_hash_pair*
+object_hash_table_get(struct object_hash_table* table, struct object* key) {
+    struct object_hash_key hash_key = object_hash_key(key);
+    struct object_hash_bucket* bucket = object_hash_table_find_bucket(table->buckets, hash_key);
+    if (bucket->value.key == NULL) return NULL;
+    return &bucket->value;
+}
+
+static struct string hash_inspect(const struct object* obj) {
+    auto self = (const struct object_hash*)obj;
+    struct string out = string_dup(STRING_REF("{"));
+    for (size_t i = 0; i < self->pairs.buckets.len; i++) {
+        struct object_hash_pair pair = self->pairs.buckets.ptr[i].value;
+        if (pair.key == NULL) continue;
+        struct string key = object_inspect(pair.key);
+        struct string value = object_inspect(pair.value);
+        string_append_printf(&out, STRING_FMT ": " STRING_FMT, STRING_ARG(key), STRING_ARG(value));
+        STRING_FREE(key);
+        STRING_FREE(value);
+        if (i < self->pairs.buckets.len - 1) {
+            string_append(&out, STRING_REF(", "));
+        }
+    }
+    string_append(&out, STRING_REF("}"));
+    return out;
+}
+
+static void hash_free(struct object* obj) {
+    auto self = DOWNCAST(struct object_hash, obj);
+    object_hash_table_free(&self->pairs);
+}
+
+static struct object* hash_dup(const struct object* obj) {
+    auto self = (const struct object_hash*)obj;
+    struct object_hash_table pairs = {0};
+    object_hash_table_init(&pairs);
+    for (size_t i = 0; i < self->pairs.buckets.len; i++) {
+        struct object_hash_pair pair = self->pairs.buckets.ptr[i].value;
+        if (pair.key == NULL) continue;
+        object_hash_table_insert(
+            &pairs,
+            object_hash_key(pair.key),
+            object_dup(pair.key),
+            object_dup(pair.value)
+        );
+    }
+    return object_hash_init_base(pairs);
+}
+
+struct object_hash* object_hash_init(struct object_hash_table pairs) {
+    struct object_hash* self = malloc(sizeof(*self));
+    self->object = object_init(OBJECT_HASH, hash_inspect, hash_free, hash_dup, NULL);
+    self->pairs = pairs;
     return self;
 }

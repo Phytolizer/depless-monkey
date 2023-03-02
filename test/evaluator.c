@@ -291,6 +291,96 @@ static TEST_FUNC0(state, array_literals) {
     PASS();
 }
 
+static TEST_FUNC0(state, hash_literals) {
+    const struct string input =
+        S("let two = \"two\";"
+          "{\n"
+          "    \"one\": 10 - 9,\n"
+          "    two: 1 + 1,\n"
+          "    \"thr\" + \"ee\": 6 / 2,\n"
+          "    4: 4,\n"
+          "    true: 5,\n"
+          "    false: 6\n"
+          "}");
+    struct object* evaluated = test_eval(input);
+
+    struct string type = show_obj_type(evaluated);
+    TEST_ASSERT(
+        state,
+        evaluated and evaluated->type == OBJECT_HASH,
+        CLEANUP(STRING_FREE(type); object_free(evaluated)),
+        "object is not hash. got=" STRING_FMT,
+        STRING_ARG(type)
+    );
+    STRING_FREE(type);
+
+    struct object_hash* hash = (struct object_hash*)evaluated;
+
+    TEST_ASSERT(
+        state,
+        hash->pairs.count == 6,
+        CLEANUP(object_free(evaluated)),
+        "hash has wrong number of pairs. got=%zu",
+        hash->pairs.count
+    );
+
+    typedef struct {
+        struct object_hash_key key;
+        int64_t value;
+    } expected_t;
+    expected_t expected[] = {
+        {.value = 1},
+        {.value = 2},
+        {.value = 3},
+        {.value = 4},
+        {.value = 5},
+        {.value = 6},
+    };
+    struct object* temp;
+    temp = object_string_init_base(S("one"));
+    expected[0].key = object_hash_key(temp);
+    object_free(temp);
+    temp = object_string_init_base(S("two"));
+    expected[1].key = object_hash_key(temp);
+    object_free(temp);
+    temp = object_string_init_base(S("three"));
+    expected[2].key = object_hash_key(temp);
+    object_free(temp);
+    temp = object_int64_init_base(4);
+    expected[3].key = object_hash_key(temp);
+    object_free(temp);
+    temp = object_boolean_init_base(true);
+    expected[4].key = object_hash_key(temp);
+    object_free(temp);
+    temp = object_boolean_init_base(false);
+    expected[5].key = object_hash_key(temp);
+    object_free(temp);
+
+    for (size_t i = 0; i < hash->pairs.buckets.len; ++i) {
+        struct object_hash_bucket bucket = hash->pairs.buckets.ptr[i];
+        if (bucket.value.key == NULL) continue;
+
+        bool found = false;
+        for (size_t j = 0; j < sizeof(expected) / sizeof(expected[0]); ++j) {
+            if (object_hash_key_equal(bucket.key, expected[j].key)) {
+                found = true;
+                RUN_SUBTEST(
+                    state,
+                    integer_object,
+                    CLEANUP(object_free(evaluated)),
+                    bucket.value.value,
+                    expected[j].value
+                );
+            }
+        }
+
+        TEST_ASSERT(state, found, CLEANUP(object_free(evaluated)), "unexpected key in hash");
+    }
+
+    object_free(evaluated);
+    PASS();
+}
+
 SUITE_FUNC(state, evaluator) {
     struct {
         struct string input;
@@ -603,4 +693,6 @@ SUITE_FUNC(state, evaluator) {
             array_index_expression_tests[i].expected
         );
     }
+
+    RUN_TEST0(state, hash_literals, S("hash literals"));
 }

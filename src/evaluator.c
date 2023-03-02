@@ -490,6 +490,43 @@ static struct object* eval_index_expression(struct object* left, struct object* 
 }
 
 static struct object*
+eval_hash_literal(struct evaluator* ev, struct ast_hash_literal* hash, struct environment* env) {
+    struct object_hash_table table;
+    object_hash_table_init(&table);
+
+    for (const struct ast_expression_hash_bucket* bucket = ast_expression_hash_first(&hash->pairs);
+         bucket != NULL;
+         bucket = ast_expression_hash_next(&hash->pairs, bucket)) {
+        struct object* key = eval_expression(ev, bucket->key, env);
+        if (is_error(key)) {
+            object_hash_table_free(&table);
+            return key;
+        }
+        if (!object_is_hashable(key)) {
+            object_hash_table_free(&table);
+            object_free(key);
+            return object_error_init_base(string_printf(
+                "unusable as hash key: " STRING_FMT,
+                STRING_ARG(object_type_string(key->type))
+            ));
+        }
+
+        struct object_hash_key hash_key = object_hash_key(key);
+
+        struct object* value = eval_expression(ev, bucket->value, env);
+        if (is_error(value)) {
+            object_hash_table_free(&table);
+            object_free(key);
+            return value;
+        }
+
+        object_hash_table_insert(&table, hash_key, key, value);
+    }
+
+    return object_hash_init_base(table);
+}
+
+static struct object*
 eval_expression(struct evaluator* ev, struct ast_expression* expression, struct environment* env) {
     switch (expression->type) {
         case AST_EXPRESSION_INTEGER_LITERAL:
@@ -579,6 +616,8 @@ eval_expression(struct evaluator* ev, struct ast_expression* expression, struct 
 
             return eval_index_expression(left, index);
         }
+        case AST_EXPRESSION_HASH:
+            return eval_hash_literal(ev, (struct ast_hash_literal*)expression, env);
         default:
             // [TODO] eval_expression
             return object_null_init_base();

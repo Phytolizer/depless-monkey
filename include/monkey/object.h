@@ -49,6 +49,9 @@ extern struct string object_inspect(const struct object* object);
 extern void object_free(struct object* object);
 extern struct object* object_dup(const struct object* object);
 extern struct object_hash_key object_hash_key(const struct object* object);
+static inline bool object_is_hashable(const struct object* object) {
+    return object->hash_key_callback != NULL;
+}
 
 struct object_int64 {
     struct object object;
@@ -153,6 +156,44 @@ struct object_array {
 extern struct object_array* object_array_init(struct object_buf elements);
 static inline struct object* object_array_init_base(struct object_buf elements) {
     return &object_array_init(elements)->object;
+}
+
+struct object_hash_pair {
+    struct object* key;
+    struct object* value;
+};
+
+struct object_hash_bucket {
+    struct object_hash_key key;
+    struct object_hash_pair value;
+};
+
+BUF_T(struct object_hash_bucket, object_hash_bucket);
+
+struct object_hash_table {
+    struct object_hash_bucket_buf buckets;
+    size_t count;
+};
+
+extern void object_hash_table_init(struct object_hash_table* table);
+extern void object_hash_table_free(struct object_hash_table* table);
+extern void object_hash_table_insert(
+    struct object_hash_table* table,
+    struct object_hash_key hash_key,
+    struct object* key,
+    struct object* value
+);
+extern struct object_hash_pair*
+object_hash_table_get(struct object_hash_table* table, struct object* key);
+
+struct object_hash {
+    struct object object;
+    struct object_hash_table pairs;
+};
+
+extern struct object_hash* object_hash_init(struct object_hash_table pairs);
+static inline struct object* object_hash_init_base(struct object_hash_table pairs) {
+    return &object_hash_init(pairs)->object;
 }
 
 #endif  // MONKEY_OBJECT_H_
