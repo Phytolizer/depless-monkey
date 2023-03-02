@@ -6,6 +6,11 @@
 #include "monkey/private/stdc.h"
 
 BUF_T(struct object*, function_argument);
+BUF_T(struct environment*, environment);
+
+struct evaluator {
+    struct environment_buf envs;
+};
 
 static bool objects_equal(struct object* left, struct object* right) {
     bool result;
@@ -165,14 +170,18 @@ static bool is_truthy(struct object* obj) {
     }
 }
 
-static struct object* eval_statement(struct ast_statement* statement, struct environment* env);
-
 static struct object*
-eval_block_statement(struct ast_block_statement* block, struct environment* env) {
+eval_statement(struct evaluator* ev, struct ast_statement* statement, struct environment* env);
+
+static struct object* eval_block_statement(
+    struct evaluator* ev,
+    struct ast_block_statement* block,
+    struct environment* env
+) {
     struct object* result = NULL;
     for (size_t i = 0; i < block->statements.len; i++) {
         object_free(result);
-        result = eval_statement(block->statements.ptr[i], env);
+        result = eval_statement(ev, block->statements.ptr[i], env);
         if (result != NULL and
             (result->type == OBJECT_RETURN_VALUE or result->type == OBJECT_ERROR)) {
             return result;
@@ -181,20 +190,24 @@ eval_block_statement(struct ast_block_statement* block, struct environment* env)
     return result;
 }
 
-static struct object* eval_expression(struct ast_expression* expression, struct environment* env);
-
 static struct object*
-eval_if_expression(struct ast_if_expression* expression, struct environment* env) {
-    struct object* condition = eval_expression(expression->condition, env);
+eval_expression(struct evaluator* ev, struct ast_expression* expression, struct environment* env);
+
+static struct object* eval_if_expression(
+    struct evaluator* ev,
+    struct ast_if_expression* expression,
+    struct environment* env
+) {
+    struct object* condition = eval_expression(ev, expression->condition, env);
     if (is_error(condition)) return condition;
 
     if (is_truthy(condition)) {
         object_free(condition);
-        return eval_block_statement(expression->consequence, env);
+        return eval_block_statement(ev, expression->consequence, env);
     } else {
         object_free(condition);
         if (expression->alternative != NULL) {
-            return eval_block_statement(expression->alternative, env);
+            return eval_block_statement(ev, expression->alternative, env);
         } else {
             return object_null_init_base();
         }
@@ -213,10 +226,10 @@ static struct object* eval_identifier(struct ast_identifier* identifier, struct 
 }
 
 static struct function_argument_buf
-eval_expressions(struct ast_call_argument_buf exps, struct environment* env) {
+eval_expressions(struct evaluator* ev, struct ast_call_argument_buf exps, struct environment* env) {
     struct function_argument_buf result = {0};
     for (size_t i = 0; i < exps.len; i++) {
-        struct object* evaluated = eval_expression(exps.ptr[i], env);
+        struct object* evaluated = eval_expression(ev, exps.ptr[i], env);
         if (is_error(evaluated)) {
             for (size_t j = 0; j < i; j++) {
                 object_free(result.ptr[j]);
@@ -256,7 +269,8 @@ static struct object* unwrap_return_value(struct object* obj) {
     }
 }
 
-static struct object* apply_function(struct object* fn, struct function_argument_buf args) {
+static struct object*
+apply_function(struct evaluator* ev, struct object* fn, struct function_argument_buf args) {
     if (fn->type != OBJECT_FUNCTION) {
         return object_error_init_base(
             string_printf("not a function: " STRING_FMT, STRING_ARG(object_type_string(fn->type)))
@@ -265,13 +279,18 @@ static struct object* apply_function(struct object* fn, struct function_argument
 
     auto function = (struct object_function*)fn;
     struct environment* extended_env = extend_function_env(function, args);
-    struct object* evaluated = eval_statement(&function->body->statement, extended_env);
-    environment_free(*extended_env);
-    free(extended_env);
+    struct object* evaluated = eval_statement(ev, &function->body->statement, extended_env);
+    if (extended_env->outer->rc == 1) {
+        environment_free(*extended_env);
+        free(extended_env);
+    } else {
+        BUF_PUSH(&ev->envs, extended_env);
+    }
     return unwrap_return_value(evaluated);
 }
 
-static struct object* eval_expression(struct ast_expression* expression, struct environment* env) {
+static struct object*
+eval_expression(struct evaluator* ev, struct ast_expression* expression, struct environment* env) {
     switch (expression->type) {
         case AST_EXPRESSION_INTEGER_LITERAL:
             return object_int64_init_base(((struct ast_integer_literal*)expression)->value);
@@ -279,16 +298,16 @@ static struct object* eval_expression(struct ast_expression* expression, struct 
             return object_boolean_init_base(((struct ast_boolean*)expression)->value);
         case AST_EXPRESSION_PREFIX: {
             auto exp = (struct ast_prefix_expression*)expression;
-            struct object* right = eval_expression(exp->right, env);
+            struct object* right = eval_expression(ev, exp->right, env);
             if (is_error(right)) return right;
 
             return eval_prefix_expression(exp->op, right);
         }
         case AST_EXPRESSION_INFIX: {
             auto exp = (struct ast_infix_expression*)expression;
-            struct object* left = eval_expression(exp->left, env);
+            struct object* left = eval_expression(ev, exp->left, env);
             if (is_error(left)) return left;
-            struct object* right = eval_expression(exp->right, env);
+            struct object* right = eval_expression(ev, exp->right, env);
             if (is_error(right)) {
                 object_free(left);
                 return right;
@@ -297,7 +316,7 @@ static struct object* eval_expression(struct ast_expression* expression, struct 
             return eval_infix_expression(exp->op, left, right);
         }
         case AST_EXPRESSION_IF:
-            return eval_if_expression((struct ast_if_expression*)expression, env);
+            return eval_if_expression(ev, (struct ast_if_expression*)expression, env);
         case AST_EXPRESSION_IDENTIFIER:
             return eval_identifier((struct ast_identifier*)expression, env);
         case AST_EXPRESSION_FUNCTION: {
@@ -315,15 +334,15 @@ static struct object* eval_expression(struct ast_expression* expression, struct 
         }
         case AST_EXPRESSION_CALL: {
             auto call = (struct ast_call_expression*)expression;
-            struct object* function = eval_expression(call->function, env);
+            struct object* function = eval_expression(ev, call->function, env);
             if (is_error(function)) return function;
-            struct function_argument_buf args = eval_expressions(call->arguments, env);
+            struct function_argument_buf args = eval_expressions(ev, call->arguments, env);
             if (args.len == 1 and is_error(args.ptr[0])) {
                 object_free(function);
                 return args.ptr[0];
             }
 
-            struct object* result = apply_function(function, args);
+            struct object* result = apply_function(ev, function, args);
             object_free(function);
             for (size_t i = 0; i < args.len; i++) {
                 object_free(args.ptr[i]);
@@ -337,22 +356,27 @@ static struct object* eval_expression(struct ast_expression* expression, struct 
     }
 }
 
-static struct object* eval_statement(struct ast_statement* statement, struct environment* env) {
+static struct object*
+eval_statement(struct evaluator* ev, struct ast_statement* statement, struct environment* env) {
     switch (statement->type) {
         case AST_STATEMENT_EXPRESSION:
-            return eval_expression(((struct ast_expression_statement*)statement)->expression, env);
+            return eval_expression(
+                ev,
+                ((struct ast_expression_statement*)statement)->expression,
+                env
+            );
         case AST_STATEMENT_BLOCK:
-            return eval_block_statement((struct ast_block_statement*)statement, env);
+            return eval_block_statement(ev, (struct ast_block_statement*)statement, env);
         case AST_STATEMENT_RETURN: {
             struct object* val =
-                eval_expression(((struct ast_return_statement*)statement)->return_value, env);
+                eval_expression(ev, ((struct ast_return_statement*)statement)->return_value, env);
             if (is_error(val)) return val;
 
             return object_return_value_init_base(val);
         }
         case AST_STATEMENT_LET: {
             struct ast_let_statement* let = (struct ast_let_statement*)statement;
-            struct object* val = eval_expression(let->value, env);
+            struct object* val = eval_expression(ev, let->value, env);
             if (is_error(val)) return val;
             environment_set(env, string_dup(let->name->value), val);
             return object_null_init_base();
@@ -363,12 +387,13 @@ static struct object* eval_statement(struct ast_statement* statement, struct env
     }
 }
 
-static struct object* eval_program(struct ast_program* program, struct environment* env) {
+static struct object*
+eval_program(struct evaluator* ev, struct ast_program* program, struct environment* env) {
     struct object* result = NULL;
 
     for (size_t i = 0; i < program->statements.len; i++) {
         object_free(result);
-        result = eval_statement(program->statements.ptr[i], env);
+        result = eval_statement(ev, program->statements.ptr[i], env);
         if (result) {
             switch (result->type) {
                 case OBJECT_RETURN_VALUE:
@@ -385,12 +410,23 @@ static struct object* eval_program(struct ast_program* program, struct environme
 }
 
 struct object* eval(struct ast_node* node, struct environment* env) {
+    struct evaluator ev = {0};
+    struct object* result;
     switch (node->type) {
         case AST_NODE_EXPRESSION:
-            return eval_expression((struct ast_expression*)node, env);
+            result = eval_expression(&ev, (struct ast_expression*)node, env);
+            break;
         case AST_NODE_STATEMENT:
-            return eval_statement((struct ast_statement*)node, env);
+            result = eval_statement(&ev, (struct ast_statement*)node, env);
+            break;
         case AST_NODE_PROGRAM:
-            return eval_program((struct ast_program*)node, env);
+            result = eval_program(&ev, (struct ast_program*)node, env);
+            break;
     }
+    for (size_t i = 0; i < ev.envs.len; i++) {
+        environment_free(*ev.envs.ptr[i]);
+        free(ev.envs.ptr[i]);
+    }
+    BUF_FREE(ev.envs);
+    return result;
 }

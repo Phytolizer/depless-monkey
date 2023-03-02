@@ -442,6 +442,7 @@ SUITE_FUNC(state, evaluator) {
         "\n"
         // this call to newAdder returns a function
         // but its parent environment gets freed after the call
+        // solution: refcounting?
         "let addTwo = newAdder(2);\n"
         "addTwo(2);\n"
     );

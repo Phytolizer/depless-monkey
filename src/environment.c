@@ -33,11 +33,13 @@ void environment_init(struct environment* env) {
     env->entries = (struct environment_entry_buf){0};
     env->count = 0;
     env->outer = NULL;
+    env->rc = 1;
 }
 
 void environment_init_enclosed(struct environment* env, struct environment* outer) {
     environment_init(env);
     env->outer = outer;
+    environment_incref(outer);
 }
 
 void environment_free(struct environment env) {
@@ -48,6 +50,20 @@ void environment_free(struct environment env) {
         }
     }
     BUF_FREE(env.entries);
+}
+
+void environment_incref(struct environment* env) {
+    env->rc++;
+}
+
+size_t environment_decref(struct environment* env) {
+    env->rc--;
+    if (env->rc == 0) {
+        environment_free(*env);
+        return 0;
+    } else {
+        return env->rc;
+    }
 }
 
 void environment_set(struct environment* env, struct string name, struct object* value) {
