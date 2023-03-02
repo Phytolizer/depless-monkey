@@ -13,6 +13,6 @@ If you have Tup installed, compile by running `tup` in the root directory.
 If you do not have Tup installed, I generate a shell script [build.sh](/build.sh).
 
 If you are writing a build script yourself, the project is pretty simple:
-- The compiler is implemented as a library in `/src`, with headers in `/include`.
+- The interpreter is implemented as a library in `/src`, with headers in `/include`.
 - The unit tests are in `/test`, and use an additional include directory `/test/include`.
 - The driver is in `/app`.
