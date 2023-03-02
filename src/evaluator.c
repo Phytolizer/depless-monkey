@@ -11,7 +11,7 @@ struct evaluator {
     struct environment_buf envs;
 };
 
-static struct object* builtin_len(struct function_argument_buf args) {
+static struct object* builtin_len(struct object_buf args) {
     if (args.len != 1) {
         return object_error_init_base(
             string_printf("wrong number of arguments. got=%zu, want=1", args.len)
@@ -288,9 +288,9 @@ static struct object* eval_identifier(struct ast_identifier* identifier, struct 
     }
 }
 
-static struct function_argument_buf
+static struct object_buf
 eval_expressions(struct evaluator* ev, struct ast_expression_buf exps, struct environment* env) {
-    struct function_argument_buf result = {0};
+    struct object_buf result = {0};
     for (size_t i = 0; i < exps.len; i++) {
         struct object* evaluated = eval_expression(ev, exps.ptr[i], env);
         if (is_error(evaluated)) {
@@ -298,7 +298,7 @@ eval_expressions(struct evaluator* ev, struct ast_expression_buf exps, struct en
                 object_free(result.ptr[j]);
             }
             BUF_FREE(result);
-            result = (struct function_argument_buf){0};
+            result = (struct object_buf){0};
             BUF_PUSH(&result, evaluated);
             return result;
         }
@@ -307,8 +307,7 @@ eval_expressions(struct evaluator* ev, struct ast_expression_buf exps, struct en
     return result;
 }
 
-static struct environment*
-extend_function_env(struct object_function* fn, struct function_argument_buf args) {
+static struct environment* extend_function_env(struct object_function* fn, struct object_buf args) {
     struct environment* env = malloc(sizeof(*env));
     environment_init_enclosed(env, fn->env);
 
@@ -333,7 +332,7 @@ static struct object* unwrap_return_value(struct object* obj) {
 }
 
 static struct object*
-apply_function(struct evaluator* ev, struct object* fn, struct function_argument_buf args) {
+apply_function(struct evaluator* ev, struct object* fn, struct object_buf args) {
     switch (fn->type) {
         case OBJECT_FUNCTION: {
             auto function = (struct object_function*)fn;
@@ -407,10 +406,12 @@ eval_expression(struct evaluator* ev, struct ast_expression* expression, struct 
             auto call = (struct ast_call_expression*)expression;
             struct object* function = eval_expression(ev, call->function, env);
             if (is_error(function)) return function;
-            struct function_argument_buf args = eval_expressions(ev, call->arguments, env);
+            struct object_buf args = eval_expressions(ev, call->arguments, env);
             if (args.len == 1 and is_error(args.ptr[0])) {
                 object_free(function);
-                return args.ptr[0];
+                struct object* err = args.ptr[0];
+                BUF_FREE(args);
+                return err;
             }
 
             struct object* result = apply_function(ev, function, args);
@@ -425,6 +426,16 @@ eval_expression(struct evaluator* ev, struct ast_expression* expression, struct 
             return object_string_init_base(
                 string_dup(((struct ast_string_literal*)expression)->value)
             );
+        case AST_EXPRESSION_ARRAY: {
+            auto array = (struct ast_array_literal*)expression;
+            struct object_buf elements = eval_expressions(ev, array->elements, env);
+            if (elements.len == 1 and is_error(elements.ptr[0])) {
+                struct object* err = elements.ptr[0];
+                BUF_FREE(elements);
+                return err;
+            }
+            return object_array_init_base(elements);
+        }
         default:
             // [TODO] eval_expression
             return object_null_init_base();

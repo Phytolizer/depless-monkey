@@ -121,8 +121,8 @@ static inline struct object* object_string_init_base(struct string value) {
     return &object_string_init(value)->object;
 }
 
-BUF_T(struct object*, function_argument);
-typedef struct object* builtin_function_callback_t(struct function_argument_buf args);
+BUF_T(struct object*, object);
+typedef struct object* builtin_function_callback_t(struct object_buf args);
 
 struct object_builtin {
     struct object object;
@@ -132,6 +132,16 @@ struct object_builtin {
 extern struct object_builtin* object_builtin_init(builtin_function_callback_t* fn);
 static inline struct object* object_builtin_init_base(builtin_function_callback_t* fn) {
     return &object_builtin_init(fn)->object;
+}
+
+struct object_array {
+    struct object object;
+    struct object_buf elements;
+};
+
+extern struct object_array* object_array_init(struct object_buf elements);
+static inline struct object* object_array_init_base(struct object_buf elements) {
+    return &object_array_init(elements)->object;
 }
 
 #endif  // MONKEY_OBJECT_H_

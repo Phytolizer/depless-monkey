@@ -258,3 +258,43 @@ struct object_builtin* object_builtin_init(builtin_function_callback_t* fn) {
     self->fn = fn;
     return self;
 }
+
+static struct string array_inspect(const struct object* obj) {
+    auto self = (const struct object_array*)obj;
+    struct string out = string_dup(STRING_REF("["));
+    for (size_t i = 0; i < self->elements.len; i++) {
+        struct string element = object_inspect(self->elements.ptr[i]);
+        string_append(&out, element);
+        STRING_FREE(element);
+        if (i < self->elements.len - 1) {
+            string_append(&out, STRING_REF(", "));
+        }
+    }
+    string_append(&out, STRING_REF("]"));
+    return out;
+}
+
+static void array_free(struct object* obj) {
+    auto self = DOWNCAST(struct object_array, obj);
+    for (size_t i = 0; i < self->elements.len; i++) {
+        object_free(self->elements.ptr[i]);
+    }
+    BUF_FREE(self->elements);
+}
+
+static struct object* array_dup(const struct object* obj) {
+    auto self = (const struct object_array*)obj;
+    struct object_buf elements = {0};
+    BUF_RESERVE(&elements, self->elements.len);
+    for (size_t i = 0; i < self->elements.len; i++) {
+        BUF_PUSH(&elements, object_dup(self->elements.ptr[i]));
+    }
+    return object_array_init_base(elements);
+}
+
+struct object_array* object_array_init(struct object_buf elements) {
+    struct object_array* self = malloc(sizeof(*self));
+    self->object = object_init(OBJECT_ARRAY, array_inspect, array_free, array_dup);
+    self->elements = elements;
+    return self;
+}

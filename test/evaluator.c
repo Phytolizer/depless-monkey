@@ -201,7 +201,7 @@ static TEST_FUNC0(state, function_object) {
         state,
         function->parameters.len == 1,
         CLEANUP(object_free(evaluated)),
-        "function has wrong parameters. Parameters=%" PRIu64,
+        "function has wrong parameters. Parameters=%zu",
         function->parameters.len
     );
 
@@ -254,6 +254,38 @@ static TEST_FUNC(state, string_literal, struct string input, struct string expec
         STRING_ARG(expected),
         STRING_ARG(string->value)
     );
+
+    object_free(evaluated);
+    PASS();
+}
+
+static TEST_FUNC0(state, array_literals) {
+    const struct string input = S("[1, 2 * 2, 3 + 3]");
+    struct object* evaluated = test_eval(input);
+
+    struct string type = show_obj_type(evaluated);
+    TEST_ASSERT(
+        state,
+        evaluated and evaluated->type == OBJECT_ARRAY,
+        CLEANUP(STRING_FREE(type); object_free(evaluated)),
+        "object is not array. got=" STRING_FMT,
+        STRING_ARG(type)
+    );
+    STRING_FREE(type);
+
+    struct object_array* array = (struct object_array*)evaluated;
+
+    TEST_ASSERT(
+        state,
+        array->elements.len == 3,
+        CLEANUP(object_free(evaluated)),
+        "array has wrong number of elements. got=%zu",
+        array->elements.len
+    );
+
+    RUN_SUBTEST(state, integer_object, CLEANUP(object_free(evaluated)), array->elements.ptr[0], 1);
+    RUN_SUBTEST(state, integer_object, CLEANUP(object_free(evaluated)), array->elements.ptr[1], 4);
+    RUN_SUBTEST(state, integer_object, CLEANUP(object_free(evaluated)), array->elements.ptr[2], 6);
 
     object_free(evaluated);
     PASS();
@@ -539,4 +571,6 @@ SUITE_FUNC(state, evaluator) {
             builtin_function_tests[i].expected
         );
     }
+
+    RUN_TEST0(state, array_literals, S("array literals"));
 }
