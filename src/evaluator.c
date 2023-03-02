@@ -88,7 +88,7 @@ static struct object* builtin_rest(struct object_buf args) {
     }
 
     struct object_array* arr = (struct object_array*)args.ptr[0];
-    if (arr->elements.len > 1) {
+    if (arr->elements.len > 0) {
         struct object_buf elements = {0};
         BUF_RESERVE(&elements, arr->elements.len - 1);
         for (size_t i = 1; i < arr->elements.len; i += 1) {
@@ -96,7 +96,7 @@ static struct object* builtin_rest(struct object_buf args) {
         }
         return object_array_init_base(elements);
     } else {
-        return object_array_init_base((struct object_buf){0});
+        return object_null_init_base();
     }
 }
 
