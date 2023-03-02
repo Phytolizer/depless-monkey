@@ -3,6 +3,7 @@ X(EOF, "EOF")
 
 X(IDENT, "IDENT")
 X(INT, "INT")
+X(STRING, "STRING")
 
 X(ASSIGN, "=")
 X(PLUS, "+")

@@ -26,6 +26,8 @@ static TEST_FUNC0(state, next_token) {
         "\n"
         "10 == 10;\n"
         "10 != 9;\n"
+        "\"foobar\"\n"
+        "\"foo bar\"\n"
     );
 
 #define S(x) STRING_REF_C(x)
@@ -107,6 +109,8 @@ static TEST_FUNC0(state, next_token) {
         {TOKEN_NOT_EQ, S("!=")},
         {TOKEN_INT, S("9")},
         {TOKEN_SEMICOLON, S(";")},
+        {TOKEN_STRING, S("foobar")},
+        {TOKEN_STRING, S("foo bar")},
         {TOKEN_EOF, S("")},
     };
     // clang-format on

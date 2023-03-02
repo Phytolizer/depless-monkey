@@ -55,6 +55,17 @@ static struct string read_number(struct lexer* l) {
     return STRING_REF_DATA(l->input.data + position, l->position - position);
 }
 
+static struct string read_string(struct lexer* l) {
+    size_t position = l->position + 1;
+    while (true) {
+        read_char(l);
+        if (l->ch == '"' or l->ch == '\0') {
+            break;
+        }
+    }
+    return STRING_REF_DATA(l->input.data + position, l->position - position);
+}
+
 static void skip_whitespace(struct lexer* l) {
     while (l->ch == ' ' or l->ch == '\t' or l->ch == '\r' or l->ch == '\n') {
         read_char(l);
@@ -122,6 +133,10 @@ struct token lexer_next_token(struct lexer* l) {
             break;
         case '}':
             tok = new_token(TOKEN_RBRACE, l->ch);
+            break;
+        case '"':
+            tok.type = TOKEN_STRING;
+            tok.literal = read_string(l);
             break;
         case '\0':
             tok.type = TOKEN_EOF;
