@@ -359,6 +359,32 @@ apply_function(struct evaluator* ev, struct object* fn, struct object_buf args) 
 }
 
 static struct object*
+eval_array_index_expression(struct object_array* array, struct object_int64* index) {
+    int64_t i = index->value;
+    size_t max = array->elements.len - 1;
+    object_free(&index->object);
+    if (i < 0 or (size_t) i > max) {
+        object_free(&array->object);
+        return object_null_init_base();
+    } else {
+        struct object* result = object_dup(array->elements.ptr[i]);
+        object_free(&array->object);
+        return result;
+    }
+}
+
+static struct object* eval_index_expression(struct object* left, struct object* index) {
+    if (left->type == OBJECT_ARRAY and index->type == OBJECT_INTEGER) {
+        return eval_array_index_expression((struct object_array*)left, (struct object_int64*)index);
+    } else {
+        return object_error_init_base(string_printf(
+            "index operator not supported: " STRING_FMT,
+            STRING_ARG(object_type_string(left->type))
+        ));
+    }
+}
+
+static struct object*
 eval_expression(struct evaluator* ev, struct ast_expression* expression, struct environment* env) {
     switch (expression->type) {
         case AST_EXPRESSION_INTEGER_LITERAL:
@@ -435,6 +461,18 @@ eval_expression(struct evaluator* ev, struct ast_expression* expression, struct 
                 return err;
             }
             return object_array_init_base(elements);
+        }
+        case AST_EXPRESSION_INDEX: {
+            auto exp = (struct ast_index_expression*)expression;
+            struct object* left = eval_expression(ev, exp->left, env);
+            if (is_error(left)) return left;
+            struct object* index = eval_expression(ev, exp->index, env);
+            if (is_error(index)) {
+                object_free(left);
+                return index;
+            }
+
+            return eval_index_expression(left, index);
         }
         default:
             // [TODO] eval_expression

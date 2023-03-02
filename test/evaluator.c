@@ -573,4 +573,34 @@ SUITE_FUNC(state, evaluator) {
     }
 
     RUN_TEST0(state, array_literals, S("array literals"));
+
+    struct {
+        struct string input;
+        struct test_value expected;
+    } array_index_expression_tests[] = {
+        {S("[1, 2, 3][0]"), test_value_int64(1)},
+        {S("[1, 2, 3][1]"), test_value_int64(2)},
+        {S("[1, 2, 3][2]"), test_value_int64(3)},
+        {S("let i = 0; [1][i];"), test_value_int64(1)},
+        {S("[1, 2, 3][1 + 1];"), test_value_int64(3)},
+        {S("let myArray = [1, 2, 3]; myArray[2];"), test_value_int64(3)},
+        {S("let myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2];"), test_value_int64(6)},
+        {S("let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i];"), test_value_int64(2)},
+        {S("[1, 2, 3][3]"), test_value_null()},
+        {S("[1, 2, 3][-1]"), test_value_null()},
+    };
+    for (size_t i = 0;
+         i < sizeof(array_index_expression_tests) / sizeof(*array_index_expression_tests);
+         i++) {
+        RUN_TEST(
+            state,
+            object,
+            string_printf(
+                "array index expression (\"" STRING_FMT "\")",
+                STRING_ARG(array_index_expression_tests[i].input)
+            ),
+            array_index_expression_tests[i].input,
+            array_index_expression_tests[i].expected
+        );
+    }
 }
