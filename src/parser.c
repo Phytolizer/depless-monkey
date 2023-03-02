@@ -15,6 +15,7 @@ enum precedence {
     PREC_PRODUCT,
     PREC_PREFIX,
     PREC_CALL,
+    PREC_INDEX,
 };
 
 static enum precedence token_precedence(enum token_type type) {
@@ -33,6 +34,8 @@ static enum precedence token_precedence(enum token_type type) {
             return PREC_PRODUCT;
         case TOKEN_LPAREN:
             return PREC_CALL;
+        case TOKEN_LBRACKET:
+            return PREC_INDEX;
         default:
             return PREC_LOWEST;
     }
@@ -356,6 +359,21 @@ static prefix_parse_fn_t* prefix_parse_fn(enum token_type type) {
     }
 }
 
+static struct ast_expression* parse_index_expression(struct parser* p, struct ast_expression* left) {
+    struct token token = take_cur(p);
+
+    next_token(p);
+    struct ast_expression* index = parse_expression(p, PREC_LOWEST);
+
+    if (!expect_peek(p, TOKEN_RBRACKET)) {
+        ast_expression_decref(index);
+        free(index);
+        return NULL;
+    }
+
+    return ast_index_expression_init_base(token, left, index);
+}
+
 static infix_parse_fn_t* infix_parse_fn(enum token_type type) {
     switch (type) {
         case TOKEN_PLUS:
@@ -369,6 +387,8 @@ static infix_parse_fn_t* infix_parse_fn(enum token_type type) {
             return &parse_infix_expression;
         case TOKEN_LPAREN:
             return &parse_call_expression;
+        case TOKEN_LBRACKET:
+            return &parse_index_expression;
         default:
             return NULL;
     }

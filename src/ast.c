@@ -796,3 +796,54 @@ ast_array_literal_init(struct token token, struct ast_expression_buf elements) {
     self->elements = elements;
     return self;
 }
+
+static struct string index_expression_token_literal(const struct ast_node* node) {
+    auto self = (const struct ast_index_expression*)node;
+    return self->token.literal;
+}
+
+static struct string index_expression_string(const struct ast_node* node) {
+    auto self = (const struct ast_index_expression*)node;
+    struct string buf = string_dup(STRING_REF("("));
+    struct string left_str = ast_expression_string(self->left);
+    string_append(&buf, left_str);
+    STRING_FREE(left_str);
+    string_append(&buf, STRING_REF("["));
+    struct string index_str = ast_expression_string(self->index);
+    string_append(&buf, index_str);
+    STRING_FREE(index_str);
+    string_append(&buf, STRING_REF("])"));
+    return buf;
+}
+
+static size_t index_expression_decref(struct ast_node* node) {
+    node->rc--;
+    if (node->rc > 0) return node->rc;
+    auto self = (struct ast_index_expression*)node;
+    STRING_FREE(self->token.literal);
+    if (ast_expression_decref(self->left) == 0) {
+        free(self->left);
+    }
+    if (ast_expression_decref(self->index) == 0) {
+        free(self->index);
+    }
+    return 0;
+}
+
+struct ast_index_expression* ast_index_expression_init(
+    struct token token,
+    struct ast_expression* left,
+    struct ast_expression* index
+) {
+    struct ast_index_expression* self = malloc(sizeof(*self));
+    self->expression = ast_expression_init(
+        AST_EXPRESSION_INDEX,
+        index_expression_token_literal,
+        index_expression_string,
+        index_expression_decref
+    );
+    self->token = token;
+    self->left = left;
+    self->index = index;
+    return self;
+}

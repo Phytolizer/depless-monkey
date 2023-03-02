@@ -322,4 +322,24 @@ ast_array_literal_init_base(struct token token, struct ast_expression_buf elemen
     return &ast_array_literal_init(token, elements)->expression;
 }
 
+struct ast_index_expression {
+    struct ast_expression expression;
+    struct token token;
+    struct ast_expression* left;
+    struct ast_expression* index;
+};
+
+extern struct ast_index_expression* ast_index_expression_init(
+    struct token token,
+    struct ast_expression* left,
+    struct ast_expression* index
+);
+static inline struct ast_expression* ast_index_expression_init_base(
+    struct token token,
+    struct ast_expression* left,
+    struct ast_expression* index
+) {
+    return &ast_index_expression_init(token, left, index)->expression;
+}
+
 #endif  // MONKEY_AST_H_

@@ -334,7 +334,7 @@ static TEST_FUNC0(state, identifier_expression) {
         state,
         program->statements.len == 1,
         CLEANUP(ast_node_decref(&program->node)),
-        "program has not enough statements. got=%zu",
+        "program does not have 1 statement. got=%zu",
         program->statements.len
     );
 
@@ -381,7 +381,7 @@ static TEST_FUNC0(state, integer_literal_expression) {
         state,
         program->statements.len == 1,
         CLEANUP(ast_node_decref(&program->node)),
-        "program has not enough statements. got=%zu",
+        "program does not have 1 statement. got=%zu",
         program->statements.len
     );
 
@@ -426,7 +426,7 @@ static TEST_FUNC(state, boolean_literal_expression, struct string input, bool va
         state,
         program->statements.len == 1,
         CLEANUP(ast_node_decref(&program->node)),
-        "program has not enough statements. got=%zu",
+        "program does not have 1 statement. got=%zu",
         program->statements.len
     );
 
@@ -477,7 +477,7 @@ static TEST_FUNC(
         state,
         program->statements.len == 1,
         CLEANUP(ast_node_decref(&program->node)),
-        "program has not enough statements. got=%zu",
+        "program does not have 1 statement. got=%zu",
         program->statements.len
     );
 
@@ -546,7 +546,7 @@ static TEST_FUNC(
         state,
         program->statements.len == 1,
         CLEANUP(ast_node_decref(&program->node)),
-        "program has not enough statements. got=%zu",
+        "program does not have 1 statement. got=%zu",
         program->statements.len
     );
 
@@ -624,7 +624,7 @@ static TEST_FUNC0(state, if_expression) {
         state,
         program->statements.len == 1,
         CLEANUP(ast_node_decref(&program->node)),
-        "program has not enough statements. got=%zu",
+        "program does not have 1 statement. got=%zu",
         program->statements.len
     );
 
@@ -715,7 +715,7 @@ static TEST_FUNC0(state, if_else_expression) {
         state,
         program->statements.len == 1,
         CLEANUP(ast_node_decref(&program->node)),
-        "program has not enough statements. got=%zu",
+        "program does not have 1 statement. got=%zu",
         program->statements.len
     );
 
@@ -826,7 +826,7 @@ static TEST_FUNC0(state, function_literal) {
         state,
         program->statements.len == 1,
         CLEANUP(ast_node_decref(&program->node)),
-        "program has not enough statements. got=%zu",
+        "program does not have 1 statement. got=%zu",
         program->statements.len
     );
 
@@ -925,7 +925,7 @@ static TEST_FUNC(
         state,
         program->statements.len == 1,
         CLEANUP(ast_node_decref(&program->node)),
-        "program has not enough statements. got=%zu",
+        "program does not have 1 statement. got=%zu",
         program->statements.len
     );
 
@@ -993,7 +993,7 @@ static TEST_FUNC0(state, call_expression) {
         state,
         program->statements.len == 1,
         CLEANUP(ast_node_decref(&program->node)),
-        "program has not enough statements. got=%zu",
+        "program does not have 1 statement. got=%zu",
         program->statements.len
     );
 
@@ -1084,7 +1084,7 @@ static TEST_FUNC0(state, string_literal_expression) {
         state,
         program->statements.len == 1,
         CLEANUP(ast_node_decref(&program->node)),
-        "program has not enough statements. got=%zu",
+        "program does not have 1 statement. got=%zu",
         program->statements.len
     );
 
@@ -1140,7 +1140,7 @@ static TEST_FUNC0(state, array_literals) {
         state,
         program->statements.len == 1,
         CLEANUP(ast_node_decref(&program->node)),
-        "program has not enough statements. got=%zu",
+        "program does not have 1 statement. got=%zu",
         program->statements.len
     );
 
@@ -1196,6 +1196,71 @@ static TEST_FUNC0(state, array_literals) {
         test_value_int64(3),
         S("+"),
         test_value_int64(3)
+    );
+
+    ast_node_decref(&program->node);
+    PASS();
+}
+
+static TEST_FUNC0(state, index_expressions) {
+    const struct string input = S("myArray[1 + 1]");
+    struct lexer l;
+    lexer_init(&l, input);
+    struct parser p;
+    parser_init(&p, &l);
+    struct ast_program* program = parse_program(&p);
+
+    RUN_SUBTEST(
+        state,
+        check_parser_errors,
+        CLEANUP(ast_node_decref(&program->node); parser_deinit(&p)),
+        &p
+    );
+    parser_deinit(&p);
+
+    TEST_ASSERT(
+        state,
+        program->statements.len == 1,
+        CLEANUP(ast_node_decref(&program->node)),
+        "program does not have 1 statement. got=%zu",
+        program->statements.len
+    );
+
+    TEST_ASSERT(
+        state,
+        program->statements.ptr[0]->type == AST_STATEMENT_EXPRESSION,
+        CLEANUP(ast_node_decref(&program->node)),
+        "program.statements[0] is not ast_expression_statement*. got=" STRING_FMT,
+        STRING_ARG(ast_statement_type_string(program->statements.ptr[0]->type))
+    );
+
+    struct ast_expression_statement* stmt =
+        (struct ast_expression_statement*)program->statements.ptr[0];
+
+    TEST_ASSERT(
+        state,
+        stmt->expression->type == AST_EXPRESSION_INDEX,
+        CLEANUP(ast_node_decref(&program->node)),
+        "stmt.expression is not ast_index_expression*. got=" STRING_FMT,
+        STRING_ARG(ast_expression_type_string(stmt->expression->type))
+    );
+
+    struct ast_index_expression* index = (struct ast_index_expression*)stmt->expression;
+    RUN_SUBTEST(
+        state,
+        identifier,
+        CLEANUP(ast_node_decref(&program->node)),
+        index->left,
+        S("myArray")
+    );
+    RUN_SUBTEST(
+        state,
+        infix_expression,
+        CLEANUP(ast_node_decref(&program->node)),
+        index->index,
+        test_value_int64(1),
+        S("+"),
+        test_value_int64(1)
     );
 
     ast_node_decref(&program->node);
@@ -1333,6 +1398,9 @@ SUITE_FUNC(state, parser) {
         {S("add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))"),
          S("add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))")},
         {S("add(a + b + c * d / f + g)"), S("add((((a + b) + ((c * d) / f)) + g))")},
+        {S("a * [1, 2, 3, 4][b * c] * d"), S("((a * ([1, 2, 3, 4][(b * c)])) * d)")},
+        {S("add(a * b[2], b[1], 2 * [1, 2][1])"),
+         S("add((a * (b[2])), (b[1]), (2 * ([1, 2][1])))")},
     };
     for (size_t i = 0; i < sizeof(operator_precedence_tests) / sizeof(*operator_precedence_tests);
          i++) {
@@ -1398,4 +1466,5 @@ SUITE_FUNC(state, parser) {
     RUN_TEST0(state, call_expression, S("call expression"));
     RUN_TEST0(state, string_literal_expression, S("string literal expression"));
     RUN_TEST0(state, array_literals, S("array literals"));
+    RUN_TEST0(state, index_expressions, S("index expressions"));
 }
