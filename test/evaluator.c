@@ -12,7 +12,16 @@
 #define S(x) STRING_REF(x)
 
 static struct string show_obj_type(struct object* obj) {
-    return obj != NULL ? object_type_string(obj->type) : S("<NULL>");
+    if (obj == NULL) return S("<NULL>");
+    switch (obj->type) {
+        case OBJECT_ERROR:
+            return string_printf(
+                "ERROR: " STRING_FMT,
+                STRING_ARG(((struct object_error*)obj)->message)
+            );
+        default:
+            return object_type_string(obj->type);
+    }
 }
 
 static struct object* test_eval(struct string input) {
@@ -31,13 +40,15 @@ static struct object* test_eval(struct string input) {
 }
 
 static SUBTEST_FUNC(state, integer_object, struct object* evaluated, int64_t expected) {
+    struct string type = show_obj_type(evaluated);
     TEST_ASSERT(
         state,
         evaluated and evaluated->type == OBJECT_INTEGER,
-        NO_CLEANUP,
+        CLEANUP(STRING_FREE(type)),
         "object is not integer. got=" STRING_FMT,
-        STRING_ARG(show_obj_type(evaluated))
+        STRING_ARG(type)
     );
+    STRING_FREE(type);
     struct object_int64* int_obj = (struct object_int64*)evaluated;
     TEST_ASSERT(
         state,
@@ -52,13 +63,15 @@ static SUBTEST_FUNC(state, integer_object, struct object* evaluated, int64_t exp
 }
 
 static SUBTEST_FUNC(state, boolean_object, struct object* evaluated, bool expected) {
+    struct string type = show_obj_type(evaluated);
     TEST_ASSERT(
         state,
         evaluated and evaluated->type == OBJECT_BOOLEAN,
-        NO_CLEANUP,
+        CLEANUP(STRING_FREE(type)),
         "object is not boolean. got=" STRING_FMT,
-        STRING_ARG(show_obj_type(evaluated))
+        STRING_ARG(type)
     );
+    STRING_FREE(type);
     struct object_boolean* bool_obj = (struct object_boolean*)evaluated;
     TEST_ASSERT(
         state,
@@ -73,13 +86,15 @@ static SUBTEST_FUNC(state, boolean_object, struct object* evaluated, bool expect
 }
 
 static SUBTEST_FUNC(state, null_object, struct object* evaluated) {
+    struct string type = show_obj_type(evaluated);
     TEST_ASSERT(
         state,
         evaluated and evaluated->type == OBJECT_NULL,
-        NO_CLEANUP,
+        CLEANUP(STRING_FREE(type)),
         "object is not null. got=" STRING_FMT,
-        STRING_ARG(show_obj_type(evaluated))
+        STRING_ARG(type)
     );
+    STRING_FREE(type);
     PASS();
 }
 
@@ -132,13 +147,15 @@ static TEST_FUNC(state, object, struct string input, struct test_value expected)
 static TEST_FUNC(state, error, struct string input, struct string expected_message) {
     struct object* evaluated = test_eval(input);
 
+    struct string type = show_obj_type(evaluated);
     TEST_ASSERT(
         state,
         evaluated and evaluated->type == OBJECT_ERROR,
-        CLEANUP(object_free(evaluated)),
+        CLEANUP(STRING_FREE(type); object_free(evaluated)),
         "object is not error. got=" STRING_FMT,
-        STRING_ARG(show_obj_type(evaluated))
+        STRING_ARG(type)
     );
+    STRING_FREE(type);
 
     struct object_error* error = (struct object_error*)evaluated;
 
@@ -159,13 +176,15 @@ static TEST_FUNC0(state, function_object) {
     const struct string input = S("fn(x) { x + 2; };");
     struct object* evaluated = test_eval(input);
 
+    struct string type = show_obj_type(evaluated);
     TEST_ASSERT(
         state,
         evaluated and evaluated->type == OBJECT_FUNCTION,
-        CLEANUP(object_free(evaluated)),
+        CLEANUP(STRING_FREE(type); object_free(evaluated)),
         "object is not function. got=" STRING_FMT,
-        STRING_ARG(show_obj_type(evaluated))
+        STRING_ARG(type)
     );
+    STRING_FREE(type);
 
     struct object_function* function = (struct object_function*)evaluated;
 
@@ -203,26 +222,27 @@ static TEST_FUNC0(state, function_object) {
     PASS();
 }
 
-static TEST_FUNC0(state, string_literal) {
-    const struct string input = S("\"Hello, world!\"");
+static TEST_FUNC(state, string_literal, struct string input, struct string expected) {
     struct object* evaluated = test_eval(input);
 
+    struct string type = show_obj_type(evaluated);
     TEST_ASSERT(
         state,
         evaluated and evaluated->type == OBJECT_STRING,
-        CLEANUP(object_free(evaluated)),
+        CLEANUP(STRING_FREE(type); object_free(evaluated)),
         "object is not string. got=" STRING_FMT,
-        STRING_ARG(show_obj_type(evaluated))
+        STRING_ARG(type)
     );
+    STRING_FREE(type);
 
     struct object_string* string = (struct object_string*)evaluated;
 
     TEST_ASSERT(
         state,
-        STRING_EQUAL(string->value, S("Hello, world!")),
+        STRING_EQUAL(string->value, expected),
         CLEANUP(object_free(evaluated)),
         "string has wrong value. expected=\"" STRING_FMT "\", got=\"" STRING_FMT "\"",
-        STRING_ARG(S("Hello, world!")),
+        STRING_ARG(expected),
         STRING_ARG(string->value)
     );
 
@@ -400,6 +420,7 @@ SUITE_FUNC(state, evaluator) {
            "}\n"),
          S("unknown operator: BOOLEAN + BOOLEAN")},
         {S("foobar"), S("identifier not found: foobar")},
+        {S("\"Hello\" - \"World\""), S("unknown operator: STRING - STRING")},
     };
     for (size_t i = 0; i < sizeof(error_handling_tests) / sizeof(*error_handling_tests); i++) {
         RUN_TEST(
@@ -471,5 +492,18 @@ SUITE_FUNC(state, evaluator) {
           "addTwo(2);\n");
     RUN_TEST(state, integer_expression, S("closure"), closure_input, 4);
 
-    RUN_TEST0(state, string_literal, S("string literal"));
+    RUN_TEST(
+        state,
+        string_literal,
+        S("basic string literal"),
+        S("\"hello world\""),
+        S("hello world")
+    );
+    RUN_TEST(
+        state,
+        string_literal,
+        S("string concatenation"),
+        S("\"hello\" + \" \" + \"world\""),
+        S("hello world")
+    );
 }

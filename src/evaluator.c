@@ -117,6 +117,32 @@ static struct object* eval_integer_infix_expression(
     }
 }
 
+static struct object* eval_string_infix_expression(
+    struct string op,
+    struct object_string* left,
+    struct object_string* right
+) {
+    if (STRING_EQUAL(op, STRING_REF("+"))) {
+        struct string result = string_printf(
+            STRING_FMT STRING_FMT,
+            STRING_ARG(left->value),
+            STRING_ARG(right->value)
+        );
+        object_free(&left->object);
+        object_free(&right->object);
+        return object_string_init_base(result);
+    } else {
+        object_free(&left->object);
+        object_free(&right->object);
+        return object_error_init_base(string_printf(
+            "unknown operator: " STRING_FMT " " STRING_FMT " " STRING_FMT,
+            STRING_ARG(object_type_string(OBJECT_STRING)),
+            STRING_ARG(op),
+            STRING_ARG(object_type_string(OBJECT_STRING))
+        ));
+    }
+}
+
 static struct object*
 eval_infix_expression(struct string op, struct object* left, struct object* right) {
     if (left == NULL || right == NULL) {
@@ -133,6 +159,12 @@ eval_infix_expression(struct string op, struct object* left, struct object* righ
             op,
             (struct object_int64*)left,
             (struct object_int64*)right
+        );
+    } else if (left->type == OBJECT_STRING and right->type == OBJECT_STRING) {
+        return eval_string_infix_expression(
+            op,
+            (struct object_string*)left,
+            (struct object_string*)right
         );
     } else if (left->type != right->type) {
         struct string left_type = object_type_string(left->type);
