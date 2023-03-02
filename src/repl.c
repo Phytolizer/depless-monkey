@@ -1,17 +1,15 @@
 #include "monkey/repl.h"
 
-#include "monkey/environment.h"
-#include "monkey/evaluator.h"
-#include "monkey/lexer.h"
-#include "monkey/parser.h"
-#include "monkey/string.h"
+#include <monkey/environment.h>
+#include <monkey/evaluator.h>
+#include <monkey/lexer.h>
+#include <monkey/parser.h>
+#include <monkey/string.h>
 
 const struct string PROMPT = STRING_REF_C(">> ");
 
-void repl_start(FILE* in, FILE* out) {
+void repl_start(FILE* in, FILE* out, struct environment* env) {
     struct string line = {0};
-    struct environment env;
-    environment_init(&env);
 
     while (true) {
         fprintf(out, STRING_FMT, STRING_ARG(PROMPT));
@@ -37,7 +35,7 @@ void repl_start(FILE* in, FILE* out) {
             continue;
         }
 
-        struct object* result = eval(&program->node, &env);
+        struct object* result = eval(&program->node, env);
         if (result != NULL) {
             struct string result_str = object_inspect(result);
             fprintf(out, STRING_FMT "\n", STRING_ARG(result_str));
@@ -48,6 +46,5 @@ void repl_start(FILE* in, FILE* out) {
         parser_deinit(&parser);
     }
 
-    environment_free(env);
     STRING_FREE(line);
 }
